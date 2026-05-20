@@ -23,10 +23,10 @@ function pct(a: number, b: number) {
 }
 
 export default function Dashboard({ data, onBack }: { data: any[], onBack: () => void }) {
-  const [filterCat, _setFilterCat] = useState("");
-  const [filterVar, _setFilterVar] = useState("");
-  const [filterView, _setFilterView] = useState("changed");
-  const [filterSearch, _setFilterSearch] = useState("");
+  const [filterCat, setFilterCat] = useState("");
+  const [filterVar, setFilterVar] = useState("");
+  const [filterView, setFilterView] = useState("changed");
+  const [filterSearch, setFilterSearch] = useState("");
   
   const [sortKey, setSortKey] = useState<string>("dp");
   const [sortDir, setSortDir] = useState<number>(-1);
@@ -157,6 +157,30 @@ export default function Dashboard({ data, onBack }: { data: any[], onBack: () =>
         </div>
       </div>
       
+      {/* Barra de filtros */}
+      <div className="flex flex-wrap gap-3 mb-6 p-4 bg-white/60 border border-black/5 rounded-xl shadow-sm">
+        <select value={filterCat} onChange={e => { setFilterCat(e.target.value); setPage(0); }} className="text-xs px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600">
+          <option value="">Todas Categorias</option>
+          <option value="PA">PA — Produto Acabado</option>
+          <option value="CO">CO — Composto</option>
+          <option value="MP">MP — Matéria Prima</option>
+          <option value="EM">EM — Embalagem</option>
+          <option value="AG">AG — Agregado</option>
+          <option value="RE">RE — Refugo</option>
+        </select>
+        <select value={filterVar} onChange={e => { setFilterVar(e.target.value); setPage(0); }} className="text-xs px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600">
+          <option value="">Toda Variação</option>
+          <option value="alta">Custo Unitário ↑</option>
+          <option value="baixa">Custo Unitário ↓</option>
+          <option value="zero">Custo Unitário =</option>
+        </select>
+        <select value={filterView} onChange={e => { setFilterView(e.target.value); setPage(0); }} className="text-xs px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600">
+          <option value="all">Todos Itens</option>
+          <option value="changed">Só Alterados</option>
+        </select>
+        <input type="text" value={filterSearch} onChange={e => { setFilterSearch(e.target.value); setPage(0); }} placeholder="Buscar código ou descrição..." className="text-xs px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 min-w-[200px]" />
+      </div>
+
       {/* Cards de métricas */}
       <div className="flex flex-wrap gap-4 mb-6">
         <Card label="Total de Itens" value={String(metrics.total)} color="text-slate-700" />
