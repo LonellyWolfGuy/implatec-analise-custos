@@ -16,6 +16,10 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'data array is required' });
   }
 
+  if (data.length > 5000) {
+    return res.status(413).json({ error: 'data array exceeds maximum of 5000 items' });
+  }
+
   const { data: record, error } = await supabase
     .from('analyses')
     .insert({ name: name || null, mes1_name: mes1_name || null, mes2_name: mes2_name || null, data })

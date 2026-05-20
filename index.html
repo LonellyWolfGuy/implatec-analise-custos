@@ -178,6 +178,7 @@ td.desc { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow
 .spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid var(--border);
   border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; margin-bottom: 0.5rem; }
 @keyframes spin { to { transform: rotate(360deg); } }
+@media print { body { background: #fff; } .top-bar .btn, .top-bar .badge, .filters, .pg, .modal-overlay, #btn-save { display: none !important; } .tbl-wrap { box-shadow: none; border: 1px solid #ccc; } }
 </style>
 </head>
 <body>
@@ -269,6 +270,7 @@ td.desc { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow
       <select id="filt-var" onchange="applyFilter()"><option value="">Todas</option><option value="alta">Custo ↑</option><option value="baixa">Custo ↓</option><option value="zero">Custo =</option></select>
       <input type="text" id="filt-search" placeholder="Buscar..." oninput="applyFilter()" style="width:160px">
       <button onclick="resetFilter()">Limpar</button>
+      <button onclick="exportCSV()">Exportar CSV</button>
     </div>
 
     <div class="tbl-wrap">
@@ -336,6 +338,14 @@ let filtered = [];
 let sortKey = null, sortDir = 1, page = 0;
 const PER = 25;
 
+function computeDeltas(r) {
+  const dq = r.q2 - r.q1, du = r.u2 - r.u1, dp = r.p2 - r.p1;
+  const dqp = r.q1 ? ((r.q2 - r.q1) / r.q1) * 100 : null;
+  const dup = r.u1 ? ((r.u2 - r.u1) / r.u1) * 100 : null;
+  const dpp = r.p1 ? ((r.p2 - r.p1) / r.p1) * 100 : null;
+  return { dq, du, dp, dqp, dup, dpp };
+}
+
 // ==================== THEME ====================
 function toggleTheme() {
   const cur = document.documentElement.getAttribute("data-theme");
@@ -377,11 +387,12 @@ function guessCategory(cod) {
   return 'PA';
 }
 
-async function extractFromPdf(file) {
+async function extractFromPdf(file, onProgress) {
   const ab = await file.arrayBuffer();
   const doc = await pdfjsLib.getDocument(ab).promise;
   const allItems = [];
   for (let p = 1; p <= doc.numPages; p++) {
+    if (onProgress) onProgress(p, doc.numPages);
     const page = await doc.getPage(p);
     const tc = await page.getTextContent();
     const rows = new Map();
@@ -421,10 +432,9 @@ async function extractFromCsv(file) {
   });
 }
 
-async function processFile(file) {
+async function processFile(file, onProgress) {
   if (file.name.endsWith('.pdf')) {
-    const items = await extractFromPdf(file);
-    // Infer categories by code prefix
+    const items = await extractFromPdf(file, onProgress);
     items.forEach(i => { if (!i.cat) i.cat = guessCategory(i.cod); });
     return { name: file.name, items };
   }
@@ -451,14 +461,38 @@ document.getElementById("drop-zone").addEventListener("click", () => {
   document.getElementById("file-input").click();
 });
 
+const dropZone = document.getElementById("drop-zone");
+dropZone.addEventListener("dragover", e => {
+  e.preventDefault();
+  dropZone.style.borderColor = "var(--success)";
+  dropZone.style.background = "rgba(16,185,129,0.08)";
+});
+dropZone.addEventListener("dragleave", () => {
+  dropZone.style.borderColor = "";
+  dropZone.style.background = "";
+});
+dropZone.addEventListener("drop", e => {
+  e.preventDefault();
+  dropZone.style.borderColor = "";
+  dropZone.style.background = "";
+  const files = Array.from(e.dataTransfer.files);
+  files.forEach(f => {
+    if (processedFiles.some(x => x.name === f.name)) return;
+    addFile(f);
+  });
+});
+
 async function addFile(file) {
   const item = document.createElement("div");
   item.className = "file-item";
   item.innerHTML = `<span class="name">${file.name}</span><span class="meta">Processando...</span>`;
   document.getElementById("file-list").appendChild(item);
+  const meta = item.querySelector(".meta");
 
   try {
-    const result = await processFile(file);
+    const result = await processFile(file, (p, total) => {
+      if (meta) meta.textContent = `Pagina ${p} de ${total}...`;
+    });
     if (result) {
       processedFiles.push(result);
       item.innerHTML = `<span class="name">${result.name}</span><span class="meta">${result.items.length} itens</span>
@@ -536,14 +570,7 @@ function crossFiles(m1, m2) {
 
 function confirmMonths() {
   const merged = crossFiles(processedFiles[mes1Idx], processedFiles[mes2Idx]);
-  // Add computed fields
-  data = merged.map(r => {
-    const dq = r.q2 - r.q1, du = r.u2 - r.u1, dp = r.p2 - r.p1;
-    const dqp = r.q1 ? ((r.q2 - r.q1) / r.q1) * 100 : null;
-    const dup = r.u1 ? ((r.u2 - r.u1) / r.u1) * 100 : null;
-    const dpp = r.p1 ? ((r.p2 - r.p1) / r.p1) * 100 : null;
-    return { ...r, dq, du, dp, dqp, dup, dpp };
-  });
+  data = merged.map(r => ({ ...r, ...computeDeltas(r) }));
   document.getElementById("dash-subtitle").textContent =
     `${processedFiles[mes1Idx].name} vs ${processedFiles[mes2Idx].name} · Custo Médio`;
   showDashboard();
@@ -574,11 +601,7 @@ function loadSample() {
   ];
   data = RAW.map(r => {
     const [cod,desc,cat,qAbr,uAbr,pAbr,qMai,uMai,pMai] = r;
-    const dq = qMai - qAbr, du = uMai - uAbr, dp = pMai - pAbr;
-    const dqp = qAbr ? ((qMai - qAbr) / qAbr) * 100 : null;
-    const dup = uAbr ? ((uMai - uAbr) / uAbr) * 100 : null;
-    const dpp = pAbr ? ((pMai - pAbr) / pAbr) * 100 : null;
-    return { cod, desc, cat, q1: qAbr, u1: uAbr, p1: pAbr, q2: qMai, u2: uMai, p2: pMai, dq, du, dp, dqp, dup, dpp };
+    return { cod, desc, cat, q1: qAbr, u1: uAbr, p1: pAbr, q2: qMai, u2: uMai, p2: pMai, ...computeDeltas({ q1: qAbr, u1: uAbr, p1: pAbr, q2: qMai, u2: uMai, p2: pMai }) };
   });
   showDashboard();
   renderMetrics();
@@ -702,6 +725,15 @@ function render() {
   if (page >= pages) page = pages - 1;
   const slice = filtered.slice(page * PER, (page + 1) * PER);
 
+  if (total === 0) {
+    document.getElementById("tbody").innerHTML = '<tr><td colspan="15" style="text-align:center;padding:2rem;color:var(--text-sec)">Nenhum item encontrado</td></tr>';
+    document.getElementById("pg-info").textContent = "Página 0 de 0";
+    document.getElementById("pg-total").textContent = "0 registros";
+    document.getElementById("btn-prev").disabled = true;
+    document.getElementById("btn-next").disabled = true;
+    return;
+  }
+
   const rows = slice.map(r => `
     <tr>
       <td class="code">${r.cod}</td>
@@ -726,6 +758,17 @@ function render() {
   document.getElementById("pg-total").textContent = `${total} registros encontrados`;
   document.getElementById("btn-prev").disabled = page === 0;
   document.getElementById("btn-next").disabled = page >= pages - 1;
+}
+
+function exportCSV() {
+  const h = "Codigo,Descricao,Categoria,Qtd M1,Unit M1,Parc M1,Qtd M2,Unit M2,Parc M2,Delta Qtd,Delta Unit,Delta Parc";
+  const rows = filtered.map(r =>
+    [r.cod, `"${r.desc}"`, r.cat, r.q1, r.u1, r.p1, r.q2, r.u2, r.p2, r.dq, r.du, r.dp].join(",")
+  );
+  const blob = new Blob(["\uFEFF" + h + "\n" + rows.join("\n")], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "comparativo.csv"; a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 // ==================== SAVE & SHARE ====================
@@ -791,13 +834,7 @@ async function loadAnalysis(id) {
     const res = await fetch("/api/load?id=" + encodeURIComponent(id));
     if (!res.ok) throw new Error("N\u00e3o encontrada");
     const analysis = await res.json();
-    data = analysis.data.map(r => {
-      const dq = r.q2 - r.q1, du = r.u2 - r.u1, dp = r.p2 - r.p1;
-      const dqp = r.q1 ? ((r.q2 - r.q1) / r.q1) * 100 : null;
-      const dup = r.u1 ? ((r.u2 - r.u1) / r.u1) * 100 : null;
-      const dpp = r.p1 ? ((r.p2 - r.p1) / r.p1) * 100 : null;
-      return { ...r, dq, du, dp, dqp, dup, dpp };
-    });
+    data = analysis.data.map(r => ({ ...r, ...computeDeltas(r) }));
     document.getElementById("dash-subtitle").textContent =
       (analysis.mes1_name || "M\u00eas 1") + " vs " + (analysis.mes2_name || "M\u00eas 2") + " \u00b7 Custo M\u00e9dio";
     renderMetrics();
