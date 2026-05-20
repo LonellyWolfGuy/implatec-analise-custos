@@ -1,0 +1,28 @@
+# Project planning
+.planning/archive/
+
+# Dependencies
+app/node_modules/
+
+# Build output
+app/dist/
+app/dist-ssr/
+
+# Environment
+app/.env
+app/.env.local
+app/.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
