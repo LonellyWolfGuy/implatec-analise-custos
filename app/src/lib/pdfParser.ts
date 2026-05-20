@@ -9,13 +9,13 @@ function parseBrNumber(str: string): number {
   return parseFloat(str.replace(/\./g, '').replace(',', '.'));
 }
 
-// Mapeamento rudimentar de Categorias pelo Código (ajustar conforme regras da Implatec)
-function guessCategory(cod: string, desc: string): string {
-  if (desc.includes('COMPOSTO') || desc.includes('MASTER')) return 'CO';
-  if (desc.includes('REFUGO')) return 'RE';
-  if (desc.includes('RESINA') || desc.includes('PVC')) return 'MP';
-  if (cod.startsWith('01')) return 'PA';
-  return 'PA'; // Padrão
+function guessCategory(cod: string, _desc: string): string {
+  if (cod.startsWith('03')) return 'CO';
+  if (cod.startsWith('04')) return 'MP';
+  if (cod.startsWith('05')) return 'AG';
+  if (cod.startsWith('06')) return 'EM';
+  if (cod.startsWith('11')) return 'RE';
+  return 'PA';
 }
 
 export async function extractInventoryFromPdf(file: File) {
