@@ -40,15 +40,15 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-05 | Phase 1 | Pending |
-| INFRA-01 | Phase 1 | Pending |
-| INFRA-02 | Phase 1 | Pending |
-| INFRA-03 | Phase 1 | Pending |
-| INFRA-04 | Phase 1 | Pending |
-| REF-01 | Phase 2 | Pending |
-| DASH-01 | Phase 3 | Pending |
-| DASH-02 | Phase 4 | Pending |
-| REF-02 | Phase 5 | Pending |
+| INFRA-05 | Phase 1 | Complete |
+| INFRA-01 | Phase 1 | Complete |
+| INFRA-02 | Phase 1 | Complete |
+| INFRA-03 | Phase 1 | Complete |
+| INFRA-04 | Phase 1 | Complete |
+| REF-01 | Phase 2 | Complete |
+| DASH-01 | Phase 3 | Complete |
+| DASH-02 | Phase 4 | Complete |
+| REF-02 | Phase 5 | Complete |
 
 **Coverage:**
 - v1 requirements: 9 total
