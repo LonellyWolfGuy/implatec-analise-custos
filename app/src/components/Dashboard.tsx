@@ -80,6 +80,33 @@ export default function Dashboard({ data, onBack }: { data: any[], onBack: () =>
     else { setSortKey(k); setSortDir(1); }
   };
 
+  const metrics = useMemo(() => {
+    const totalM1 = processedData.reduce((s, r) => s + (r.pAbr || 0), 0);
+    const totalM2 = processedData.reduce((s, r) => s + (r.pMai || 0), 0);
+    const delta = totalM2 - totalM1;
+    const deltaPct = pct(totalM1, totalM2);
+    const aumentaram = processedData.filter(r => r.du > 0).length;
+    const reduziram = processedData.filter(r => r.du < 0).length;
+    const novos = processedData.filter(r => r.qAbr === 0 && r.qMai > 0).length;
+    const removidos = processedData.filter(r => r.qMai === 0 && r.qAbr > 0).length;
+    return { totalM1, totalM2, delta, deltaPct, aumentaram, reduziram, novos, removidos, total: processedData.length };
+  }, [processedData]);
+
+  const fmtMon = (v: number) => v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const Card = ({ label, value, color, delta, deltaPct }: { label: string; value: string; color: string; delta?: number; deltaPct?: number | null }) => (
+    <div className="bg-white/80 border border-black/5 rounded-xl p-4 shadow-sm min-w-[160px] flex-1">
+      <p className="text-xs text-slate-400 uppercase font-semibold mb-1">{label}</p>
+      <p className={`text-lg font-bold ${color}`}>{value}</p>
+      {delta != null && (
+        <p className={`text-xs mt-0.5 ${delta >= 0 ? 'text-[#ef4444]' : 'text-[#10b981]'}`}>
+          {delta >= 0 ? '↑' : '↓'} {fmtMon(Math.abs(delta))}
+          {deltaPct != null ? ` (${deltaPct >= 0 ? '+' : ''}${deltaPct.toFixed(1)}%)` : ''}
+        </p>
+      )}
+    </div>
+  );
+
   const deltaColor = (v: number | null, isQty = false) => {
     if (v == null || v === 0) return "text-[#94a3b8]"; // muted
     if (isQty) return v > 0 ? "text-[#10b981]" : "text-[#ef4444]";
@@ -130,6 +157,18 @@ export default function Dashboard({ data, onBack }: { data: any[], onBack: () =>
         </div>
       </div>
       
+      {/* Cards de métricas */}
+      <div className="flex flex-wrap gap-4 mb-6">
+        <Card label="Total de Itens" value={String(metrics.total)} color="text-slate-700" />
+        <Card label="Total Mês 1" value={`R$ ${fmtMon(metrics.totalM1)}`} color="text-slate-700" />
+        <Card label="Total Mês 2" value={`R$ ${fmtMon(metrics.totalM2)}`} color="text-slate-700" />
+        <Card label="Variação Total" value={`R$ ${fmtMon(Math.abs(metrics.delta))}`} color={metrics.delta >= 0 ? 'text-[#ef4444]' : 'text-[#10b981]'} delta={metrics.delta} deltaPct={metrics.deltaPct} />
+        <Card label={`↑ Aumentaram (${metrics.aumentaram})`} value={String(metrics.aumentaram)} color="text-[#ef4444]" />
+        <Card label={`↓ Reduziram (${metrics.reduziram})`} value={String(metrics.reduziram)} color="text-[#10b981]" />
+        <Card label={`Novos (${metrics.novos})`} value={String(metrics.novos)} color="text-[#3b82f6]" />
+        <Card label={`Removidos (${metrics.removidos})`} value={String(metrics.removidos)} color="text-[#94a3b8]" />
+      </div>
+
       {/* Tabela de itens */}
       <div className="w-full overflow-x-auto bg-white/80 border border-black/5 rounded-xl shadow-lg">
         <table className="w-full text-xs text-left whitespace-nowrap">
