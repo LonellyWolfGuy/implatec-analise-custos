@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Implatec — Análise de Custos</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.7.570/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.5.2/papaparse.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+:root {
+  --font-sans: 'Outfit', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --bg: #f8fafc; --bg-panel: rgba(255,255,255,0.8); --bg-card: rgba(255,255,255,0.9);
+  --bg-hover: rgba(0,0,0,0.03); --text: #0f172a; --text-sec: #475569; --text-muted: #94a3b8;
+  --border: rgba(0,0,0,0.08); --accent: #3b82f6; --accent-glow: rgba(59,130,246,0.2);
+  --success: #10b981; --success-bg: rgba(16,185,129,0.15); --danger: #ef4444; --danger-bg: rgba(239,68,68,0.15);
+  --warning: #f59e0b; --warning-bg: rgba(245,158,11,0.15); --info: #3b82f6; --info-bg: rgba(59,130,246,0.15);
+  --radius-sm: 6px; --radius-md: 8px; --radius-lg: 12px; --radius-full: 9999px;
+  --shadow-sm: 0 2px 4px -1px rgba(0,0,0,0.05); --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.05),0 10px 15px -3px rgba(0,0,0,0.05);
+  --input-bg: rgba(255,255,255,0.8); --table-hdr: rgba(0,0,0,0.03); --btn-bg: rgba(0,0,0,0.03); --btn-hover: rgba(0,0,0,0.06);
+}
+[data-theme="dark"] {
+  --bg: #0f111a; --bg-panel: rgba(22,27,34,0.7); --bg-card: rgba(33,38,45,0.6);
+  --bg-hover: rgba(255,255,255,0.04); --text: #f0f6fc; --text-sec: #8b949e; --text-muted: #484f58;
+  --border: rgba(240,246,252,0.1); --accent: #58a6ff; --accent-glow: rgba(88,166,255,0.3);
+  --success: #3fb950; --success-bg: rgba(63,185,80,0.15); --danger: #f85149; --danger-bg: rgba(248,81,73,0.15);
+  --warning: #d29922; --warning-bg: rgba(210,153,34,0.15); --info: #58a6ff; --info-bg: rgba(88,166,255,0.15);
+  --input-bg: rgba(0,0,0,0.2); --table-hdr: rgba(0,0,0,0.2); --btn-bg: rgba(255,255,255,0.05); --btn-hover: rgba(255,255,255,0.1);
+  --shadow-sm: 0 4px 6px -1px rgba(0,0,0,0.2); --shadow-md: 0 10px 15px -3px rgba(0,0,0,0.3);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--font-sans); background: var(--bg); color: var(--text);
+  min-height: 100vh; line-height: 1.5;
+  background-image: radial-gradient(ellipse at top left, rgba(59,130,246,0.08), transparent 40%),
+                    radial-gradient(ellipse at bottom right, rgba(16,185,129,0.05), transparent 40%);
+}
+.wrap { max-width: 1440px; margin: 0 auto; padding: 2rem; }
+.screen { display: none; }
+.screen.active { display: block; animation: fadeIn .4s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+.top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;
+  padding: 1.5rem; background: var(--bg-panel); backdrop-filter: blur(12px); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-md); }
+.title-block h1 { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.25rem; }
+.title-block p { font-size: 0.85rem; color: var(--text-sec); }
+.badge { font-size: 0.75rem; padding: 0.4rem 0.8rem; border-radius: var(--radius-full); font-weight: 600;
+  letter-spacing: 0.05em; text-transform: uppercase; background: var(--info-bg); color: var(--info);
+  border: 1px solid rgba(88,166,255,0.3); }
+
+/* Upload screen */
+.upload-box { max-width: 600px; margin: 4rem auto; }
+.upload-box h1 { font-size: 1.75rem; font-weight: 700; text-align: center; margin-bottom: 0.5rem; }
+.upload-box p.sub { color: var(--text-sec); text-align: center; margin-bottom: 2rem; }
+.drop-zone { display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 100%; height: 140px; border: 2px dashed var(--accent); background: rgba(255,255,255,0.5);
+  border-radius: var(--radius-lg); cursor: pointer; transition: all 0.2s; }
+.drop-zone:hover { background: rgba(59,130,246,0.05); }
+.drop-zone svg { width: 32px; height: 32px; color: var(--accent); margin-bottom: 0.5rem; }
+.drop-zone p { font-size: 0.9rem; color: var(--text-sec); }
+.drop-zone p strong { color: var(--text); }
+.file-list { margin-bottom: 1.5rem; }
+.file-item { display: flex; align-items: center; justify-content: space-between;
+  background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-md);
+  padding: 0.75rem 1rem; margin-bottom: 0.5rem; }
+.file-item .name { font-size: 0.9rem; font-weight: 500; }
+.file-item .meta { font-size: 0.8rem; color: var(--text-muted); }
+.file-item .del { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; }
+.file-item .del:hover { color: var(--danger); }
+.btn { font-family: var(--font-sans); font-size: 0.9rem; padding: 0.7rem 1.5rem; border-radius: var(--radius-md);
+  border: none; cursor: pointer; font-weight: 600; transition: all 0.2s; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { filter: brightness(1.1); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
+.btn-ghost { background: var(--btn-bg); color: var(--text); border: 1px solid var(--border); }
+.btn-ghost:hover { background: var(--btn-hover); }
+.btn-block { width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
+.mt-4 { margin-top: 1rem; }
+.mt-6 { margin-top: 1.5rem; }
+
+/* Month select */
+.select-box { max-width: 500px; margin: 6rem auto; text-align: center; }
+.select-box h2 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem; }
+.select-box p { color: var(--text-sec); margin-bottom: 2rem; }
+.select-row { display: flex; align-items: flex-end; gap: 1rem; margin-bottom: 2rem; }
+.select-group { flex: 1; text-align: left; }
+.select-group label { font-size: 0.75rem; font-weight: 600; color: var(--text-sec);
+  text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.4rem; }
+.select-group select { width: 100%; font-family: var(--font-sans); font-size: 0.9rem;
+  padding: 0.6rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border);
+  background: var(--input-bg); color: var(--text); outline: none; }
+.select-group select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+.arrow-icon { color: var(--text-muted); margin-bottom: 0.5rem; }
+
+/* Dashboard */
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+.metric { background: var(--bg-card); backdrop-filter: blur(8px); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 1.25rem; box-shadow: var(--shadow-sm); }
+.metric label { font-size: 0.75rem; color: var(--text-sec); text-transform: uppercase;
+  letter-spacing: 0.05em; display: block; margin-bottom: 0.5rem; font-weight: 600; }
+.metric .val { font-size: 1.4rem; font-weight: 600; letter-spacing: -0.02em; }
+.metric .sub { font-size: 0.75rem; margin-top: 0.5rem; font-weight: 500; }
+.up { color: var(--danger); } .down { color: var(--success); } .zero { color: var(--text-muted); }
+
+.summary-section { margin-bottom: 2rem; }
+.summary-section h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; }
+
+.filters { display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center;
+  background: var(--bg-panel); padding: 0.75rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border); }
+.filters select, .filters input { font-family: var(--font-sans); font-size: 0.85rem;
+  padding: 0.4rem 0.6rem; border-radius: var(--radius-sm); border: 1px solid var(--border);
+  background: var(--input-bg); color: var(--text); outline: none; }
+.filters select:focus, .filters input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+.filters button { font-family: var(--font-sans); font-size: 0.85rem; padding: 0.4rem 0.8rem;
+  border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--btn-bg);
+  color: var(--text); cursor: pointer; font-weight: 500; }
+.filters button:hover { background: var(--btn-hover); }
+.filters .label { font-size: 0.8rem; color: var(--text-sec); font-weight: 500; }
+
+.tbl-wrap { width: 100%; overflow-x: auto; background: var(--bg-panel);
+  border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-md); }
+.tbl-wrap::-webkit-scrollbar { height: 8px; }
+.tbl-wrap::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 4px; }
+.tbl-wrap::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+thead tr { background: var(--table-hdr); border-bottom: 1px solid var(--border); }
+thead th { padding: 0.65rem 0.5rem; text-align: left; font-weight: 600; font-size: 0.7rem;
+  color: var(--text-sec); text-transform: uppercase; letter-spacing: 0.05em;
+  white-space: nowrap; cursor: pointer; user-select: none; }
+thead th.r { text-align: right; }
+thead th:hover { color: var(--text); }
+.sort-arrow { margin-left: 2px; opacity: 0.3; }
+.sort-active { color: var(--text); } .sort-active .sort-arrow { opacity: 1; color: var(--accent); }
+tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--bg-hover); }
+td { padding: 0.5rem; color: var(--text); vertical-align: middle; }
+td.r { text-align: right; font-variant-numeric: tabular-nums; }
+td.code { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-sec); }
+td.desc { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+.pill { font-size: 0.65rem; padding: 0.15rem 0.5rem; border-radius: var(--radius-full); font-weight: 700;
+  letter-spacing: 0.05em; display: inline-block; }
+.pill-PA { background: var(--success-bg); color: var(--success); border: 1px solid rgba(63,185,80,0.2); }
+.pill-CO { background: var(--info-bg); color: var(--info); border: 1px solid rgba(88,166,255,0.2); }
+.pill-MP { background: var(--warning-bg); color: var(--warning); border: 1px solid rgba(210,153,34,0.2); }
+.pill-EM { background: rgba(139,148,158,0.15); color: var(--text-sec); border: 1px solid rgba(139,148,158,0.2); }
+.pill-RE { background: var(--danger-bg); color: var(--danger); border: 1px solid rgba(248,81,73,0.2); }
+.pill-AG { background: rgba(188,140,255,0.15); color: #bc8cff; border: 1px solid rgba(188,140,255,0.2); }
+.delta { font-size: 0.75rem; font-weight: 600; }
+.pg { display: flex; align-items: center; gap: 1rem; margin-top: 1rem; font-size: 0.85rem;
+  color: var(--text-sec); justify-content: space-between; }
+.pg button { font-family: var(--font-sans); font-size: 0.85rem; padding: 0.4rem 0.8rem;
+  border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--btn-bg);
+  color: var(--text); cursor: pointer; font-weight: 500; }
+.pg button:hover:not(:disabled) { background: var(--btn-hover); }
+.pg button:disabled { opacity: 0.4; cursor: not-allowed; }
+#pg-info { min-width: 100px; text-align: center; font-weight: 500; padding: 0.4rem 0.8rem;
+  background: var(--input-bg); border-radius: var(--radius-sm); }
+.loading { text-align: center; padding: 3rem; color: var(--text-sec); }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.modal { background: var(--bg-panel); backdrop-filter: blur(12px); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 2rem; max-width: 480px; width: 90%; box-shadow: var(--shadow-md); }
+.modal h3 { font-size: 1.1rem; margin-bottom: 0.5rem; }
+.modal p { color: var(--text-sec); font-size: 0.9rem; margin-bottom: 1rem; }
+.share-link-box { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+.share-link-box input { flex: 1; font-family: var(--font-mono); font-size: 0.8rem; padding: 0.5rem;
+  border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--input-bg); color: var(--text); }
+.share-link-box button { font-family: var(--font-sans); font-size: 0.85rem; padding: 0.5rem 1rem;
+  border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--accent); color: #fff; cursor: pointer; font-weight: 600; }
+.share-link-box button:hover { filter: brightness(1.1); }
+.toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%);
+  background: var(--text); color: var(--bg); padding: 0.75rem 1.5rem; border-radius: var(--radius-full);
+  font-size: 0.85rem; font-weight: 500; z-index: 1001; animation: fadeIn .3s ease-out; }
+.hidden-analysis { max-width: 500px; margin: 6rem auto; text-align: center; }
+.spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid var(--border);
+  border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; margin-bottom: 0.5rem; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <!-- ==================== SCREEN: UPLOAD ==================== -->
+  <div id="screen-upload" class="screen active">
+    <div class="upload-box">
+      <h1>Importar Inventário</h1>
+      <p class="sub">Faça upload dos arquivos de inventário (PDF ou CSV).</p>
+
+      <div id="file-list" class="file-list"></div>
+
+      <div id="drop-zone" class="drop-zone" role="button" tabindex="0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <p><strong>Clique</strong> para selecionar arquivo</p>
+      </div>
+      <input id="file-input" type="file" accept=".pdf,.csv" style="display:none" multiple>
+
+      <button id="btn-next-step" class="btn btn-primary btn-block mt-6" disabled onclick="showSelect()">
+        Continuar <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+      <button class="btn btn-ghost btn-block mt-4" onclick="loadSample()">Teste Rápido (Dados de Exemplo)</button>
+    </div>
+  </div>
+
+  <!-- ==================== SCREEN: SELECT MONTHS ==================== -->
+  <div id="screen-select" class="screen">
+    <div class="select-box">
+      <h2>Selecionar Períodos</h2>
+      <p>Defina qual arquivo corresponde a cada mês.</p>
+      <div class="select-row">
+        <div class="select-group">
+          <label>Mês 1 (Referência)</label>
+          <select id="sel-mes1"></select>
+        </div>
+        <div class="arrow-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </div>
+        <div class="select-group">
+          <label>Mês 2 (Comparado)</label>
+          <select id="sel-mes2"></select>
+        </div>
+      </div>
+      <div style="display:flex; gap:1rem;">
+        <button class="btn btn-ghost" style="flex:1" onclick="showUpload()">Voltar</button>
+        <button class="btn btn-primary" style="flex:1" onclick="confirmMonths()">Gerar Comparativo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SCREEN: DASHBOARD ==================== -->
+  <div id="screen-dashboard" class="screen">
+    <div class="top-bar">
+      <div class="title-block">
+        <h1>Comparativo de Inventário — Implatec Perfis Plásticos</h1>
+        <p id="dash-subtitle">Custo Médio &nbsp;·&nbsp; CNPJ 00.716.481/0001-36</p>
+      </div>
+      <div style="display:flex; gap:0.75rem; align-items:center;">
+        <button class="btn btn-ghost" onclick="showUpload()" style="padding:0.4rem 1rem;font-size:0.85rem;">← Novo Upload</button>
+        <button id="btn-save" class="btn btn-ghost" onclick="saveAnalysis()" style="padding:0.4rem 1rem;font-size:0.85rem;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Salvar
+        </button>
+        <button id="theme-toggle" class="badge" style="cursor:pointer;display:flex;align-items:center;gap:6px;background:var(--btn-bg);color:var(--text);border:1px solid var(--border);box-shadow:none;" onclick="toggleTheme()">
+          <span id="theme-icon">🌙 Escuro</span>
+        </button>
+        <span class="badge">Modelo P7</span>
+      </div>
+    </div>
+
+    <div class="metrics" id="metrics"></div>
+
+    <div class="summary-section">
+      <h3><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Resumo Consolidado por Categoria</h3>
+      <div class="tbl-wrap">
+        <table><thead><tr>
+          <th>Categoria</th><th class="r">Qtd Itens</th><th class="r">Total Mês 1</th><th class="r">Total Mês 2</th><th class="r">Flutuação (R$)</th><th class="r">Flutuação (%)</th>
+        </tr></thead><tbody id="summary-tbody"></tbody><tfoot id="summary-tfoot" style="background:var(--table-hdr);font-weight:600;border-top:1px solid var(--border);"></tfoot></table>
+      </div>
+    </div>
+
+    <div class="filters">
+      <span class="label">Visualização:</span>
+      <select id="filt-view" onchange="applyFilter()"><option value="changed">Só Alterados</option><option value="all">Todos</option></select>
+      <span class="label">Categoria:</span>
+      <select id="filt-cat" onchange="applyFilter()"><option value="">Todas</option><option value="PA">PA</option><option value="CO">CO</option><option value="MP">MP</option><option value="EM">EM</option><option value="AG">AG</option><option value="RE">RE</option></select>
+      <span class="label">Variação:</span>
+      <select id="filt-var" onchange="applyFilter()"><option value="">Todas</option><option value="alta">Custo ↑</option><option value="baixa">Custo ↓</option><option value="zero">Custo =</option></select>
+      <input type="text" id="filt-search" placeholder="Buscar..." oninput="applyFilter()" style="width:160px">
+      <button onclick="resetFilter()">Limpar</button>
+    </div>
+
+    <div class="tbl-wrap">
+      <table>
+        <colgroup><col style="width:85px"><col style="width:180px"><col style="width:60px">
+          <col style="width:65px"><col style="width:70px"><col style="width:70px">
+          <col style="width:65px"><col style="width:70px"><col style="width:70px">
+          <col style="width:65px"><col style="width:70px"><col style="width:70px">
+          <col style="width:65px"><col style="width:65px"><col style="width:65px">
+        </colgroup>
+        <thead><tr>
+          <th onclick="sortBy('cod')">Código <span class="sort-arrow">↕</span></th>
+          <th onclick="sortBy('desc')">Descrição <span class="sort-arrow">↕</span></th>
+          <th onclick="sortBy('cat')">Cat <span class="sort-arrow">↕</span></th>
+          <th class="r" onclick="sortBy('q1')">Qtd M1 <span class="sort-arrow">↕</span></th>
+          <th class="r" onclick="sortBy('u1')">Unit M1 <span class="sort-arrow">↕</span></th>
+          <th class="r" onclick="sortBy('p1')">Parc M1 <span class="sort-arrow">↕</span></th>
+          <th class="r" onclick="sortBy('q2')">Qtd M2 <span class="sort-arrow">↕</span></th>
+          <th class="r" onclick="sortBy('u2')">Unit M2 <span class="sort-arrow">↕</span></th>
+          <th class="r" onclick="sortBy('p2')">Parc M2 <span class="sort-arrow">↕</span></th>
+          <th class="r" onclick="sortBy('dq')">Δ Qtd <span class="sort-arrow">↕</span></th>
+          <th class="r" onclick="sortBy('du')">Δ Unit <span class="sort-arrow">↕</span></th>
+          <th class="r" onclick="sortBy('dp')">Δ Parc <span class="sort-arrow">↕</span></th>
+          <th class="r" onclick="sortBy('dqp')">Δ% Qtd <span class="sort-arrow">↕</span></th>
+          <th class="r" onclick="sortBy('dup')">Δ% Unit <span class="sort-arrow">↕</span></th>
+          <th class="r" onclick="sortBy('dpp')">Δ% Parc <span class="sort-arrow">↕</span></th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="pg">
+      <span id="pg-total"></span>
+      <div style="display:flex;align-items:center;gap:0.5rem;">
+        <button id="btn-prev" onclick="goPage(-1)">← Anterior</button>
+        <span id="pg-info"></span>
+        <button id="btn-next" onclick="goPage(1)">Próxima →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+  <!-- ==================== SHARE MODAL ==================== -->
+  <div id="share-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeShareModal()">
+    <div class="modal">
+      <h3>Análise Salva!</h3>
+      <p>Compartilhe o link para acessar de qualquer lugar:</p>
+      <div class="share-link-box">
+        <input type="text" id="share-link" readonly onclick="this.select()">
+        <button onclick="copyLink()">Copiar</button>
+      </div>
+      <button class="btn btn-ghost btn-block" onclick="closeShareModal()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== STATE ====================
+const CAT_LABEL = {PA:"Produto Acabado",CO:"Composto",MP:"Matéria Prima",EM:"Embalagem",AG:"Agregado",RE:"Refugo"};
+const CAT_PREFIX = {PA:"01",CO:"03",MP:"04",AG:"05",EM:"06",RE:"11"};
+const REV_PREFIX = Object.fromEntries(Object.entries(CAT_PREFIX).map(([k,v])=>({prefix:v,cat:k})));
+let processedFiles = [];
+let mes1Idx = 0, mes2Idx = 1;
+let data = [];
+let filtered = [];
+let sortKey = null, sortDir = 1, page = 0;
+const PER = 25;
+
+// ==================== THEME ====================
+function toggleTheme() {
+  const cur = document.documentElement.getAttribute("data-theme");
+  const next = cur === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  localStorage.setItem("implatec-theme", next);
+  document.getElementById("theme-icon").textContent = next === "dark" ? "☀️ Claro" : "🌙 Escuro";
+}
+const saved = localStorage.getItem("implatec-theme") || "light";
+document.documentElement.setAttribute("data-theme", saved);
+document.getElementById("theme-icon").textContent = saved === "dark" ? "☀️ Claro" : "🌙 Escuro";
+
+// ==================== NAVIGATION ====================
+function showScreen(id) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+}
+function showUpload() {
+  showScreen("screen-upload");
+  document.querySelector(".upload-box").style.display = "";
+  document.getElementById("btn-save").style.display = "";
+  updateFileList();
+}
+function showSelect() { showScreen("screen-select"); updateSelects(); }
+function showDashboard() { showScreen("screen-dashboard"); }
+
+// ==================== PDF/CSV PARSING ====================
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.7.570/pdf.worker.min.js';
+
+function parseBrNumber(str) {
+  if (!str) return 0;
+  return parseFloat(String(str).replace(/\./g, '').replace(',', '.'));
+}
+
+function guessCategory(cod) {
+  for (const [cat, prefix] of Object.entries(CAT_PREFIX)) {
+    if (cod.startsWith(prefix)) return cat;
+  }
+  return 'PA';
+}
+
+async function extractFromPdf(file) {
+  const ab = await file.arrayBuffer();
+  const doc = await pdfjsLib.getDocument(ab).promise;
+  const allItems = [];
+  for (let p = 1; p <= doc.numPages; p++) {
+    const page = await doc.getPage(p);
+    const tc = await page.getTextContent();
+    const rows = new Map();
+    tc.items.forEach(item => {
+      const y = item.transform[5].toFixed(1);
+      if (!rows.has(y)) rows.set(y, []);
+      rows.get(y).push(item);
+    });
+    const sortedY = Array.from(rows.keys()).sort((a, b) => parseFloat(b) - parseFloat(a));
+    for (const y of sortedY) {
+      const items = rows.get(y).sort((a, b) => a.transform[4] - b.transform[4]);
+      const line = items.map(i => i.str).join('');
+      if (!line.startsWith('|')) continue;
+      const m = line.match(/^\|\s*(?:[0-9A-Z]+\s*)?\|\s*([^|]+)\s*\|\s*([A-Z]+)\s*\|\s*([\d.,]+)\s*\|\s*([\d.,]+)\s*\|\s*([\d.,]+)\s*\|/);
+      if (!m) continue;
+      const full = m[1].trim();
+      const h = full.indexOf('-');
+      const cod = h !== -1 ? full.substring(0, h).trim() : full;
+      const desc = h !== -1 ? full.substring(h + 1).trim() : full;
+      allItems.push({
+        cod, desc, cat: '',
+        qty: parseBrNumber(m[3]),
+        unitCost: parseBrNumber(m[4]),
+        totalCost: parseBrNumber(m[5])
+      });
+    }
+  }
+  return allItems;
+}
+
+async function extractFromCsv(file) {
+  return new Promise((resolve, reject) => {
+    Papa.parse(file, {
+      header: true, complete: r => resolve(r.data),
+      error: reject
+    });
+  });
+}
+
+async function processFile(file) {
+  if (file.name.endsWith('.pdf')) {
+    const items = await extractFromPdf(file);
+    // Infer categories by code prefix
+    items.forEach(i => { if (!i.cat) i.cat = guessCategory(i.cod); });
+    return { name: file.name, items };
+  }
+  if (file.name.endsWith('.csv')) {
+    const items = await extractFromCsv(file);
+    items.forEach(i => { if (!i.cat) i.cat = guessCategory(i.cod); });
+    return { name: file.name, items };
+  }
+  return null;
+}
+
+// ==================== UPLOAD UI ====================
+document.getElementById("file-input").addEventListener("change", async e => {
+  const files = Array.from(e.target.files);
+  if (!files.length) return;
+  for (const f of files) {
+    if (processedFiles.some(x => x.name === f.name)) continue;
+    await addFile(f);
+  }
+  e.target.value = '';
+});
+
+document.getElementById("drop-zone").addEventListener("click", () => {
+  document.getElementById("file-input").click();
+});
+
+async function addFile(file) {
+  const item = document.createElement("div");
+  item.className = "file-item";
+  item.innerHTML = `<span class="name">${file.name}</span><span class="meta">Processando...</span>`;
+  document.getElementById("file-list").appendChild(item);
+
+  try {
+    const result = await processFile(file);
+    if (result) {
+      processedFiles.push(result);
+      item.innerHTML = `<span class="name">${result.name}</span><span class="meta">${result.items.length} itens</span>
+        <button class="del" onclick="removeFile(${processedFiles.length - 1})">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>`;
+    }
+  } catch(err) {
+    item.innerHTML = `<span class="name">${file.name}</span><span class="meta" style="color:var(--danger)">Erro ao processar</span>`;
+    console.error(err);
+  }
+  updateFileList();
+}
+
+function removeFile(idx) {
+  processedFiles.splice(idx, 1);
+  updateFileList();
+}
+
+function updateFileList() {
+  const list = document.getElementById("file-list");
+  list.innerHTML = '';
+  processedFiles.forEach((f, i) => {
+    const div = document.createElement("div");
+    div.className = "file-item";
+    div.innerHTML = `<span class="name">${f.name}</span><span class="meta">${f.items.length} itens</span>
+      <button class="del" onclick="removeFile(${i})">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>`;
+    list.appendChild(div);
+  });
+  document.getElementById("btn-next-step").disabled = processedFiles.length < 2;
+}
+
+// ==================== SELECT MONTHS ====================
+function updateSelects() {
+  const s1 = document.getElementById("sel-mes1");
+  const s2 = document.getElementById("sel-mes2");
+  s1.innerHTML = ''; s2.innerHTML = '';
+  processedFiles.forEach((f, i) => {
+    s1.innerHTML += `<option value="${i}" ${i === mes2Idx ? 'disabled' : ''}>${f.name}</option>`;
+    s2.innerHTML += `<option value="${i}" ${i === mes1Idx ? 'disabled' : ''}>${f.name}</option>`;
+  });
+  s1.value = mes1Idx;
+  s2.value = mes2Idx;
+}
+
+document.getElementById("sel-mes1").addEventListener("change", e => {
+  mes1Idx = Number(e.target.value);
+  updateSelects();
+});
+document.getElementById("sel-mes2").addEventListener("change", e => {
+  mes2Idx = Number(e.target.value);
+  updateSelects();
+});
+
+// ==================== CROSS FILES ====================
+function crossFiles(m1, m2) {
+  const map1 = new Map(m1.items.map(i => [i.cod, i]));
+  const map2 = new Map(m2.items.map(i => [i.cod, i]));
+  const all = new Set([...map1.keys(), ...map2.keys()]);
+  const merged = [];
+  for (const cod of all) {
+    if (!cod) continue;
+    const a = map1.get(cod) || { qty: 0, unitCost: 0, totalCost: 0, cat: '', desc: '' };
+    const b = map2.get(cod) || { qty: 0, unitCost: 0, totalCost: 0, cat: '', desc: '' };
+    merged.push({
+      cod, desc: a.desc || b.desc, cat: a.cat || b.cat,
+      q1: a.qty, u1: a.unitCost, p1: a.totalCost,
+      q2: b.qty, u2: b.unitCost, p2: b.totalCost
+    });
+  }
+  return merged;
+}
+
+function confirmMonths() {
+  const merged = crossFiles(processedFiles[mes1Idx], processedFiles[mes2Idx]);
+  // Add computed fields
+  data = merged.map(r => {
+    const dq = r.q2 - r.q1, du = r.u2 - r.u1, dp = r.p2 - r.p1;
+    const dqp = r.q1 ? ((r.q2 - r.q1) / r.q1) * 100 : null;
+    const dup = r.u1 ? ((r.u2 - r.u1) / r.u1) * 100 : null;
+    const dpp = r.p1 ? ((r.p2 - r.p1) / r.p1) * 100 : null;
+    return { ...r, dq, du, dp, dqp, dup, dpp };
+  });
+  document.getElementById("dash-subtitle").textContent =
+    `${processedFiles[mes1Idx].name} vs ${processedFiles[mes2Idx].name} · Custo Médio`;
+  showDashboard();
+  renderMetrics();
+  renderSummary();
+  applyFilter();
+}
+
+// ==================== SAMPLE DATA ====================
+function loadSample() {
+  const RAW = [
+    ["0300092A","COMPOSTO DE PVC FLEXIVEL","CO",0,0,0,49.8,7.049,351.04],
+    ["0300147A","COMPOSTO DE PVC RIGIDO B","CO",153.68,5.5217,848.58,29.34,11.7256,344.03],
+    ["0300147B","COMPOSTO DE PVC RIGIDO B","CO",679.893,5.0057,3403.34,504.373,5.0057,2524.74],
+    ["0400080A","MASTER DE PVC PTO 001","MP",265.197,23.5486,6245.01,153.52,23.5483,3615.13],
+    ["0400198A","PVC RIGIDO MARFIM","MP",18588.5,10.5412,195945.04,17850,10.8186,193111.3],
+    ["0400194A","PVC RIGIDO CRI 001","MP",8835.282,13.5164,119421.49,10737.742,13.0758,140404.27],
+    ["0500001A","FITA DUPLA FACE 9,5MM CR","AG",1724.19,0.6606,1138.92,808.73,0.6605,534.17],
+    ["0500002A","FITA DUPLA FACE 10MM","AG",4848.84,0.6388,3097.28,1065.95,0.6388,680.96],
+    ["0600007A","FITA ADESIVA TRANSPARENT","EM",46488.23,0.0449,2085.02,36801.725,0.0449,1650.56],
+    ["0600024A","CAIXA PAPELÃO Nº02","EM",1100.74,3.1248,3439.54,984.03,3.1248,3074.85],
+    ["1100060A","REFUGO PVC RIGIDO CRI","RE",662.48,0.7042,466.49,313.3,29.5462,9256.82],
+    ["1100080A","REFUGO PVC RIGIDO DIV","RE",8.495,8.7981,74.74,1182.97,9.2938,10994.23],
+    ["0101808I065R/A","PF PORTA ETIQ 35MM","PA",91,2.1488,195.54,124,2.9919,371],
+    ["0107628I205R","PF EMENDA DE CHAPAS","PA",553,5.9453,3287.74,338,5.9453,2009.51],
+    ["0108275I248R","PF Z P/ CHECK-OUT","PA",74,2.4703,182.8,70,2.4703,172.92],
+    ["0109928I005F","PF ACAB 50MM C/ DF P","PA",3,179.23,537.69,3,84.7467,254.24]
+  ];
+  data = RAW.map(r => {
+    const [cod,desc,cat,qAbr,uAbr,pAbr,qMai,uMai,pMai] = r;
+    const dq = qMai - qAbr, du = uMai - uAbr, dp = pMai - pAbr;
+    const dqp = qAbr ? ((qMai - qAbr) / qAbr) * 100 : null;
+    const dup = uAbr ? ((uMai - uAbr) / uAbr) * 100 : null;
+    const dpp = pAbr ? ((pMai - pAbr) / pAbr) * 100 : null;
+    return { cod, desc, cat, q1: qAbr, u1: uAbr, p1: pAbr, q2: qMai, u2: uMai, p2: pMai, dq, du, dp, dqp, dup, dpp };
+  });
+  showDashboard();
+  renderMetrics();
+  renderSummary();
+  applyFilter();
+}
+
+// ==================== DASHBOARD RENDERING ====================
+function fmt(v, dec = 2) {
+  if (v == null || isNaN(v)) return "–";
+  return v.toLocaleString("pt-BR", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+}
+function fmtR(v, dec = 2) {
+  if (v == null || isNaN(v)) return "–";
+  let s = v.toLocaleString("pt-BR", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  return v > 0 ? "+" + s : s;
+}
+function pct(a, b) { if (!a || a === 0) return null; return ((b - a) / a) * 100; }
+function deltaClass(v, isQty = false) {
+  if (v == null || v === 0) return "zero";
+  if (isQty) return v > 0 ? "up" : "down";
+  return v > 0 ? "up" : "down";
+}
+
+function renderMetrics() {
+  const tot1 = data.reduce((s, r) => s + r.p1, 0);
+  const tot2 = data.reduce((s, r) => s + r.p2, 0);
+  const delta = tot2 - tot1;
+  const deltaP = pct(tot1, tot2);
+  const alta = data.filter(r => r.du > 0).length;
+  const baixa = data.filter(r => r.du < 0).length;
+  const novos = data.filter(r => r.q1 === 0 && r.q2 > 0).length;
+  const removidos = data.filter(r => r.q2 === 0 && r.q1 > 0).length;
+
+  const arrowUp = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>';
+  const arrowDn = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>';
+
+  document.getElementById("metrics").innerHTML = `
+    <div class="metric"><label>Total de Itens</label><div class="val">${data.length}</div></div>
+    <div class="metric"><label>Total Mês 1</label><div class="val">R$ ${fmt(tot1)}</div></div>
+    <div class="metric"><label>Total Mês 2</label><div class="val">R$ ${fmt(tot2)}</div>
+      <div class="sub ${deltaClass(delta)}">${delta > 0 ? arrowUp : (delta < 0 ? arrowDn : '')} R$ ${fmt(Math.abs(delta))} ${deltaP != null ? `(${deltaP >= 0 ? '+' : ''}${fmt(deltaP, 1)}%)` : ''}</div>
+    </div>
+    <div class="metric"><label>↑ Custo Subiu</label><div class="val up">${alta} itens</div></div>
+    <div class="metric"><label>↓ Custo Baixou</label><div class="val down">${baixa} itens</div></div>
+    <div class="metric"><label>Novos (Mês 2)</label><div class="val">${novos}</div></div>
+    <div class="metric"><label>Removidos</label><div class="val">${removidos}</div></div>`;
+}
+
+function renderSummary() {
+  const summary = {};
+  Object.keys(CAT_LABEL).forEach(k => { summary[k] = { count: 0, p1: 0, p2: 0 }; });
+  data.forEach(r => { if (summary[r.cat]) { summary[r.cat].count++; summary[r.cat].p1 += r.p1; summary[r.cat].p2 += r.p2; } });
+  let html = '', t1 = 0, t2 = 0, tc = 0;
+  Object.keys(CAT_LABEL).forEach(k => {
+    const s = summary[k];
+    if (!s.count) return;
+    tc += s.count; t1 += s.p1; t2 += s.p2;
+    const dp = s.p2 - s.p1, dpp = pct(s.p1, s.p2);
+    html += `<tr><td><span class="pill pill-${k}">${CAT_LABEL[k]}</span></td><td class="r">${s.count}</td>
+      <td class="r">R$ ${fmt(s.p1)}</td><td class="r">R$ ${fmt(s.p2)}</td>
+      <td class="r"><span class="delta ${deltaClass(dp)}">${fmtR(dp)}</span></td>
+      <td class="r"><span class="delta ${deltaClass(dpp)}">${dpp != null ? fmtR(dpp, 1) + '%' : '–'}</span></td></tr>`;
+  });
+  document.getElementById("summary-tbody").innerHTML = html;
+  const dp = t2 - t1, dpp = pct(t1, t2);
+  document.getElementById("summary-tfoot").innerHTML =
+    `<tr><td style="padding:0.75rem;text-transform:uppercase;">Total Geral</td><td class="r" style="padding:0.75rem;">${tc}</td>
+      <td class="r" style="padding:0.75rem;">R$ ${fmt(t1)}</td><td class="r" style="padding:0.75rem;">R$ ${fmt(t2)}</td>
+      <td class="r" style="padding:0.75rem;"><span class="delta ${deltaClass(dp)}">${fmtR(dp)}</span></td>
+      <td class="r" style="padding:0.75rem;"><span class="delta ${deltaClass(dpp)}">${dpp != null ? fmtR(dpp, 1) + '%' : '–'}</span></td></tr>`;
+}
+
+function applyFilter() {
+  const cat = document.getElementById("filt-cat").value;
+  const varv = document.getElementById("filt-var").value;
+  const view = document.getElementById("filt-view").value;
+  const srch = document.getElementById("filt-search").value.toLowerCase();
+  filtered = data.filter(r => {
+    if (view === "changed" && r.dq === 0 && r.du === 0 && r.dp === 0) return false;
+    if (cat && r.cat !== cat) return false;
+    if (varv === "alta" && r.du <= 0) return false;
+    if (varv === "baixa" && r.du >= 0) return false;
+    if (varv === "zero" && r.du !== 0) return false;
+    if (srch && !r.cod.toLowerCase().includes(srch) && !r.desc.toLowerCase().includes(srch)) return false;
+    return true;
+  });
+  if (sortKey) doSort(sortKey);
+  page = 0;
+  render();
+}
+
+function resetFilter() {
+  document.getElementById("filt-cat").value = "";
+  document.getElementById("filt-var").value = "";
+  document.getElementById("filt-view").value = "changed";
+  document.getElementById("filt-search").value = "";
+  applyFilter();
+}
+
+function sortBy(k) {
+  if (sortKey === k) sortDir *= -1; else { sortKey = k; sortDir = 1; }
+  doSort(k);
+  render();
+}
+
+function doSort(k) {
+  filtered.sort((a, b) => {
+    let av = a[k], bv = b[k];
+    if (av == null) av = -Infinity;
+    if (bv == null) bv = -Infinity;
+    return typeof av === "string" ? av.localeCompare(bv) * sortDir : (av - bv) * sortDir;
+  });
+}
+
+function goPage(d) { page += d; render(); }
+
+function render() {
+  const total = filtered.length;
+  const pages = Math.ceil(total / PER) || 1;
+  if (page >= pages) page = pages - 1;
+  const slice = filtered.slice(page * PER, (page + 1) * PER);
+
+  const rows = slice.map(r => `
+    <tr>
+      <td class="code">${r.cod}</td>
+      <td class="desc" title="${r.desc}">${r.desc}</td>
+      <td><span class="pill pill-${r.cat}">${r.cat}</span></td>
+      <td class="r">${fmt(r.q1, 3)}</td>
+      <td class="r">${fmt(r.u1)}</td>
+      <td class="r">${fmt(r.p1)}</td>
+      <td class="r">${fmt(r.q2, 3)}</td>
+      <td class="r">${fmt(r.u2)}</td>
+      <td class="r">${fmt(r.p2)}</td>
+      <td class="r"><span class="delta ${deltaClass(r.dq, true)}">${fmtR(r.dq, 3)}</span></td>
+      <td class="r"><span class="delta ${deltaClass(r.du)}">${fmtR(r.du)}</span></td>
+      <td class="r"><span class="delta ${deltaClass(r.dp)}">${fmtR(r.dp)}</span></td>
+      <td class="r"><span class="delta ${deltaClass(r.dqp, true)}">${r.dqp != null ? fmtR(r.dqp, 1) + '%' : '–'}</span></td>
+      <td class="r"><span class="delta ${deltaClass(r.dup)}">${r.dup != null ? fmtR(r.dup, 1) + '%' : '–'}</span></td>
+      <td class="r"><span class="delta ${deltaClass(r.dpp)}">${r.dpp != null ? fmtR(r.dpp, 1) + '%' : '–'}</span></td>
+    </tr>`).join("");
+
+  document.getElementById("tbody").innerHTML = rows;
+  document.getElementById("pg-info").textContent = `Página ${page + 1} de ${pages}`;
+  document.getElementById("pg-total").textContent = `${total} registros encontrados`;
+  document.getElementById("btn-prev").disabled = page === 0;
+  document.getElementById("btn-next").disabled = page >= pages - 1;
+}
+
+// ==================== SAVE & SHARE ====================
+async function saveAnalysis() {
+  const btn = document.getElementById("btn-save");
+  btn.disabled = true; btn.textContent = "Salvando...";
+  try {
+    const res = await fetch("/api/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: null,
+        mes1_name: processedFiles[mes1Idx]?.name || "M\u00eas 1",
+        mes2_name: processedFiles[mes2Idx]?.name || "M\u00eas 2",
+        data
+      })
+    });
+    const result = await res.json();
+    if (result.id) showShareModal(result.id);
+    else showToast("Erro: " + (result.error || "desconhecido"));
+  } catch(e) {
+    showToast("Erro de conex\u00e3o ao salvar");
+  }
+  btn.disabled = false; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Salvar';
+}
+
+function showShareModal(id) {
+  const link = window.location.origin + window.location.pathname + "?id=" + id;
+  document.getElementById("share-link").value = link;
+  document.getElementById("share-modal").style.display = "flex";
+}
+
+function closeShareModal() {
+  document.getElementById("share-modal").style.display = "none";
+}
+
+async function copyLink() {
+  const input = document.getElementById("share-link");
+  try {
+    await navigator.clipboard.writeText(input.value);
+    showToast("Link copiado!");
+  } catch {
+    input.select();
+    document.execCommand("copy");
+    showToast("Link copiado!");
+  }
+}
+
+function showToast(msg) {
+  const t = document.createElement("div");
+  t.className = "toast"; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2500);
+}
+
+async function loadAnalysis(id) {
+  document.getElementById("screen-upload").classList.remove("active");
+  document.getElementById("screen-select").classList.remove("active");
+  document.getElementById("screen-dashboard").classList.add("active");
+  document.querySelector(".upload-box").style.display = "none";
+  document.getElementById("metrics").innerHTML = '<div class="loading"><div class="spinner"></div><p>Carregando an\u00e1lise...</p></div>';
+  try {
+    const res = await fetch("/api/load?id=" + encodeURIComponent(id));
+    if (!res.ok) throw new Error("N\u00e3o encontrada");
+    const analysis = await res.json();
+    data = analysis.data.map(r => {
+      const dq = r.q2 - r.q1, du = r.u2 - r.u1, dp = r.p2 - r.p1;
+      const dqp = r.q1 ? ((r.q2 - r.q1) / r.q1) * 100 : null;
+      const dup = r.u1 ? ((r.u2 - r.u1) / r.u1) * 100 : null;
+      const dpp = r.p1 ? ((r.p2 - r.p1) / r.p1) * 100 : null;
+      return { ...r, dq, du, dp, dqp, dup, dpp };
+    });
+    document.getElementById("dash-subtitle").textContent =
+      (analysis.mes1_name || "M\u00eas 1") + " vs " + (analysis.mes2_name || "M\u00eas 2") + " \u00b7 Custo M\u00e9dio";
+    renderMetrics();
+    renderSummary();
+    applyFilter();
+    document.getElementById("btn-save").style.display = "none";
+  } catch(e) {
+    document.getElementById("metrics").innerHTML = '<div style="text-align:center;padding:3rem;color:var(--danger)"><p>Erro ao carregar an\u00e1lise. Link inv\u00e1lido ou expirado.</p><button class="btn btn-primary mt-4" onclick="showUpload()">\u2190 Voltar ao in\u00edcio</button></div>';
+  }
+}
+
+(function() {
+  const p = new URLSearchParams(window.location.search);
+  if (p.has("id")) loadAnalysis(p.get("id"));
+})();
+</script>
+</body>
+</html>

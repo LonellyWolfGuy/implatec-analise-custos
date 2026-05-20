@@ -1,11 +1,8 @@
 # Project planning
 .planning/archive/
 
-# Test/parse scripts (development artifacts)
-parse_test.py
-app/test*.mjs
-
 # Dependencies
+node_modules/
 app/node_modules/
 
 # Build output
@@ -13,9 +10,9 @@ app/dist/
 app/dist-ssr/
 
 # Environment
-app/.env
-app/.env.local
-app/.env.*.local
+.env
+.env.local
+.env.*.local
 
 # Logs
 *.log
