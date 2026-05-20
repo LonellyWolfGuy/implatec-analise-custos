@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { UploadCloud, ArrowRight } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { UploadCloud, ArrowRight, Trash2 } from 'lucide-react';
 import Papa from 'papaparse';
 import Dashboard from './components/Dashboard';
 import { extractInventoryFromPdf } from './lib/pdfParser';
@@ -36,43 +36,46 @@ function App() {
   const [processedFiles, setProcessedFiles] = useState<any[]>([]);
   const [mes1Idx, setMes1Idx] = useState(0);
   const [mes2Idx, setMes2Idx] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const processFile = async (file: File) => {
+    if (file.name.endsWith('.pdf')) {
+      const items = await extractInventoryFromPdf(file);
+      return { name: file.name, items };
+    }
+    if (file.name.endsWith('.csv')) {
+      const items = await new Promise<any[]>((resolve) => {
+        Papa.parse(file, {
+          header: true,
+          complete: (r) => resolve(r.data as any[])
+        });
+      });
+      return { name: file.name, items };
+    }
+    return null;
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
-
-    if (files.length < 2) {
-        alert("Selecione 2 arquivos (Mês 1 e Mês 2) segurando CTRL ou SHIFT.");
-        return;
-    }
-
+    setLoading(true);
     try {
-        const allProcessedFiles = [];
-        for (const file of files) {
-            if (file.name.endsWith('.pdf')) {
-                const items = await extractInventoryFromPdf(file);
-                allProcessedFiles.push({ name: file.name, items });
-            } else if (file.name.endsWith('.csv')) {
-                const items = await new Promise<any[]>((resolve) => {
-                    Papa.parse(file, {
-                        header: true,
-                        complete: (results) => resolve(results.data as any[])
-                    });
-                });
-                allProcessedFiles.push({ name: file.name, items });
-            }
-        }
-
-        if (allProcessedFiles.length >= 2) {
-            setProcessedFiles(allProcessedFiles);
-            setMes1Idx(0);
-            setMes2Idx(1);
-            setView('select');
-        }
+      for (const file of files) {
+        if (processedFiles.some(f => f.name === file.name)) continue;
+        const result = await processFile(file);
+        if (result) setProcessedFiles(prev => [...prev, result]);
+      }
     } catch (err) {
-        console.error(err);
-        alert("Erro ao processar os arquivos. Verifique o console.");
+      console.error(err);
+      alert("Erro ao processar arquivo.");
     }
+    setLoading(false);
+    if (fileRef.current) fileRef.current.value = '';
+  };
+
+  const removeFile = (idx: number) => {
+    setProcessedFiles(prev => prev.filter((_, i) => i !== idx));
   };
 
   const confirmMonths = () => {
@@ -134,18 +137,40 @@ function App() {
         backgroundImage: 'radial-gradient(ellipse at top left, rgba(59, 130, 246, 0.08), transparent 40%), radial-gradient(ellipse at bottom right, rgba(16, 185, 129, 0.05), transparent 40%)'
       }}></div>
 
-      <div className="w-full max-w-xl bg-[rgba(255,255,255,0.8)] backdrop-blur-md border border-[rgba(0,0,0,0.08)] rounded-2xl p-8 shadow-xl text-center relative z-10">
-        <h1 className="text-3xl font-bold font-['Outfit'] mb-2">Importar Inventário</h1>
-        <p className="text-[#475569] mb-8">Faça o upload do Mês 1 e Mês 2 (PDF ou CSV) para gerar o relatório consolidado MOD7.</p>
-        
-        <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-[#3b82f6] bg-[rgba(255,255,255,0.5)] rounded-xl cursor-pointer hover:bg-[rgba(59,130,246,0.05)] transition-colors shadow-sm">
-          <div className="flex flex-col items-center justify-center pt-5 pb-6">
-            <UploadCloud className="w-12 h-12 text-[#3b82f6] mb-4" />
-            <p className="mb-2 text-sm text-[#475569]"><span className="font-semibold">Clique para enviar</span> ou arraste os arquivos</p>
-            <p className="text-xs text-[#94a3b8]">PDF, CSV, ou Excel (MAX. 10MB)</p>
+      <div className="w-full max-w-xl bg-[rgba(255,255,255,0.8)] backdrop-blur-md border border-[rgba(0,0,0,0.08)] rounded-2xl p-8 shadow-xl relative z-10">
+        <h1 className="text-3xl font-bold font-['Outfit'] mb-2 text-center">Importar Inventário</h1>
+        <p className="text-[#475569] mb-6 text-center">Faça upload dos arquivos de inventário (PDF ou CSV) um de cada vez.</p>
+
+        {processedFiles.length > 0 && (
+          <div className="mb-6 space-y-2">
+            <p className="text-xs font-semibold text-slate-500 uppercase">Arquivos carregados:</p>
+            {processedFiles.map((f, i) => (
+              <div key={i} className="flex items-center justify-between bg-white/60 border border-slate-200 rounded-lg px-4 py-2.5">
+                <span className="text-sm text-slate-700 truncate">{f.name}</span>
+                <span className="text-xs text-slate-400 mr-2">{f.items.length} itens</span>
+                <button onClick={() => removeFile(i)} className="text-slate-400 hover:text-red-500 transition">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
           </div>
-          <input type="file" className="hidden" multiple accept=".pdf,.csv,.xlsx" onChange={handleFileUpload} />
+        )}
+
+        <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-[#3b82f6] bg-[rgba(255,255,255,0.5)] rounded-xl cursor-pointer hover:bg-[rgba(59,130,246,0.05)] transition-colors shadow-sm ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
+          <div className="flex flex-col items-center justify-center">
+            <UploadCloud className="w-8 h-8 text-[#3b82f6] mb-2" />
+            <p className="text-sm text-[#475569]">
+              {loading ? 'Processando...' : <><span className="font-semibold">Clique</span> para selecionar arquivo</>}
+            </p>
+          </div>
+          <input ref={fileRef} type="file" className="hidden" accept=".pdf,.csv" onChange={handleFileUpload} />
         </label>
+
+        {processedFiles.length >= 2 && (
+          <button onClick={() => setView('select')} className="mt-6 w-full py-3 rounded-lg text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 transition flex items-center justify-center gap-2">
+            Continuar <ArrowRight className="w-4 h-4" />
+          </button>
+        )}
 
         <button 
           onClick={() => {
@@ -156,9 +181,9 @@ function App() {
             ]);
             setView('dashboard');
           }}
-          className="mt-6 w-full py-3 rounded-lg text-sm font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition"
+          className={`mt-4 w-full py-3 rounded-lg text-sm font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition ${processedFiles.length >= 2 ? '' : ''}`}
         >
-          Teste Rápido (Gerar Dados de Exemplo)
+          Teste Rápido (Dados de Exemplo)
         </button>
       </div>
     </div>
