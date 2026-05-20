@@ -11,6 +11,11 @@ const CAT_PILL: Record<string, string> = {
   RE: "bg-[#ef4444]/15 text-[#ef4444] border-[#ef4444]/20"
 };
 
+function fmt(v: number | null, dec = 2) {
+  if (v == null || isNaN(v)) return "–";
+  return v.toLocaleString("pt-BR", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+}
+
 function fmtR(v: number | null, dec = 2) {
   if (v == null || isNaN(v)) return "–";
   let s = v.toLocaleString("pt-BR", { minimumFractionDigits: dec, maximumFractionDigits: dec });
@@ -201,6 +206,12 @@ export default function Dashboard({ data, onBack }: { data: any[], onBack: () =>
               <th className="p-3 cursor-pointer hover:text-slate-800" onClick={() => handleSort('cod')}>Código</th>
               <th className="p-3 cursor-pointer hover:text-slate-800" onClick={() => handleSort('desc')}>Descrição</th>
               <th className="p-3 cursor-pointer hover:text-slate-800" onClick={() => handleSort('cat')}>Categoria</th>
+              <th className="p-3 cursor-pointer hover:text-slate-800 text-right" onClick={() => handleSort('qAbr')}>Qtd M1</th>
+              <th className="p-3 cursor-pointer hover:text-slate-800 text-right" onClick={() => handleSort('uAbr')}>Unit. M1</th>
+              <th className="p-3 cursor-pointer hover:text-slate-800 text-right" onClick={() => handleSort('pAbr')}>Parcial M1</th>
+              <th className="p-3 cursor-pointer hover:text-slate-800 text-right" onClick={() => handleSort('qMai')}>Qtd M2</th>
+              <th className="p-3 cursor-pointer hover:text-slate-800 text-right" onClick={() => handleSort('uMai')}>Unit. M2</th>
+              <th className="p-3 cursor-pointer hover:text-slate-800 text-right" onClick={() => handleSort('pMai')}>Parcial M2</th>
               <th className="p-3 cursor-pointer hover:text-slate-800 text-right" onClick={() => handleSort('dq')}>Δ Qtd</th>
               <th className="p-3 cursor-pointer hover:text-slate-800 text-right" onClick={() => handleSort('du')}>Δ Unit</th>
               <th className="p-3 cursor-pointer hover:text-slate-800 text-right" onClick={() => handleSort('dp')}>Δ Parcial</th>
@@ -217,6 +228,12 @@ export default function Dashboard({ data, onBack }: { data: any[], onBack: () =>
                     {r.cat}
                   </span>
                 </td>
+                <td className="p-3 text-right text-slate-600">{fmt(r.qAbr, 3)}</td>
+                <td className="p-3 text-right text-slate-600">{fmt(r.uAbr)}</td>
+                <td className="p-3 text-right text-slate-600">{fmt(r.pAbr)}</td>
+                <td className="p-3 text-right text-slate-600">{fmt(r.qMai, 3)}</td>
+                <td className="p-3 text-right text-slate-600">{fmt(r.uMai)}</td>
+                <td className="p-3 text-right text-slate-600">{fmt(r.pMai)}</td>
                 <td className={`p-3 text-right font-semibold ${deltaColor(r.dq, true)}`}>{fmtR(r.dq, 3)}</td>
                 <td className={`p-3 text-right font-semibold ${deltaColor(r.du)}`}>{fmtR(r.du)}</td>
                 <td className={`p-3 text-right font-semibold ${deltaColor(r.dp)}`}>{fmtR(r.dp)}</td>

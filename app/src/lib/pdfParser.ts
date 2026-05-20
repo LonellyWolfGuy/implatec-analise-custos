@@ -1,7 +1,7 @@
 import * as pdfjsLib from 'pdfjs-dist';
+import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
-// Configurar o worker do PDF.js via CDN compatível com a versão instalada
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 
 // Função para converter strings formatadas "1.234,56" para número 1234.56
 function parseBrNumber(str: string): number {
@@ -47,12 +47,11 @@ export async function extractInventoryFromPdf(file: File) {
       
       const lineStr = items.map(i => i.str).join('');
       
-      // Formato: |code - desc|cat|qty|unit|total|
-      const match = lineStr.match(/^\|\s*([^|]+)\s*\|\s*([A-Z]+)\s*\|\s*([\d.,]+)\s*\|\s*([\d.,]+)\s*\|\s*([\d.,]+)\s*\|/);
+      // Formato: |num_linha | código - descrição | cat | qtd | unit | total | |
+      const match = lineStr.match(/^\|\s*([0-9A-Z]+)\s*\|\s*([^|]+)\s*\|\s*([A-Z]+)\s*\|\s*([\d.,]+)\s*\|\s*([\d.,]+)\s*\|\s*([\d.,]+)\s*\|/);
       
       if (match) {
-        const fullDesc = match[1].trim();
-        // Separar Código da Descrição ("0101662I004F - PF TAMPA PARA-CHO")
+        const fullDesc = match[2].trim();
         let cod = fullDesc;
         let desc = fullDesc;
         const hyphenIdx = fullDesc.indexOf('-');
@@ -61,9 +60,9 @@ export async function extractInventoryFromPdf(file: File) {
           desc = fullDesc.substring(hyphenIdx + 1).trim();
         }
 
-        const quantity = parseBrNumber(match[3]);
-        const unitCost = parseBrNumber(match[4]);
-        const totalCost = parseBrNumber(match[5]);
+        const quantity = parseBrNumber(match[4]);
+        const unitCost = parseBrNumber(match[5]);
+        const totalCost = parseBrNumber(match[6]);
 
         allItems.push({
           cod,
