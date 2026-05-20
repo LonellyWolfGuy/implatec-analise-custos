@@ -47,12 +47,11 @@ export async function extractInventoryFromPdf(file: File) {
       
       const lineStr = items.map(i => i.str).join('');
       
-      // Exemplo da linha: |39162000     | 0101662I004F - PF TAMPA PARA-CHO | PC |         10,000 |            23,8240|              238,24|                   |
-      // Regex que busca os pilares divididos por "|"
-      const match = lineStr.match(/^\|\s*([0-9A-Z]+)\s*\|\s*([^|]+)\s*\|\s*([A-Z]+)\s*\|\s*([\d.,]+)\s*\|\s*([\d.,]+)\s*\|\s*([\d.,]+)\s*\|/);
+      // Formato: |code - desc|cat|qty|unit|total|
+      const match = lineStr.match(/^\|\s*([^|]+)\s*\|\s*([A-Z]+)\s*\|\s*([\d.,]+)\s*\|\s*([\d.,]+)\s*\|\s*([\d.,]+)\s*\|/);
       
       if (match) {
-        const fullDesc = match[2].trim();
+        const fullDesc = match[1].trim();
         // Separar Código da Descrição ("0101662I004F - PF TAMPA PARA-CHO")
         let cod = fullDesc;
         let desc = fullDesc;
@@ -62,9 +61,9 @@ export async function extractInventoryFromPdf(file: File) {
           desc = fullDesc.substring(hyphenIdx + 1).trim();
         }
 
-        const quantity = parseBrNumber(match[4]);
-        const unitCost = parseBrNumber(match[5]);
-        const totalCost = parseBrNumber(match[6]);
+        const quantity = parseBrNumber(match[3]);
+        const unitCost = parseBrNumber(match[4]);
+        const totalCost = parseBrNumber(match[5]);
 
         allItems.push({
           cod,

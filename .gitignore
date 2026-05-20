@@ -1,6 +1,10 @@
 # Project planning
 .planning/archive/
 
+# Test/parse scripts (development artifacts)
+parse_test.py
+app/test*.mjs
+
 # Dependencies
 app/node_modules/
 
