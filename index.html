@@ -1027,10 +1027,10 @@ function showConfirm(title, msg, btnText, callback) {
   document.getElementById("modal-msg").textContent = msg;
   const btn = document.getElementById("modal-confirm-btn");
   btn.textContent = btnText;
-  manageCallback = callback;
+  const cb = callback;
   btn.onclick = function() {
     closeModal();
-    if (manageCallback) manageCallback();
+    if (cb) cb();
   };
   document.getElementById("modal-confirm").style.display = "flex";
 }
