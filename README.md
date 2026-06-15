@@ -1,6 +1,6 @@
 # Implatec — Análise de Custos
 
-Comparativo de inventário entre dois meses para a Implatec Perfis Plásticos. Processa relatórios PDF (MOD7) e CSV exportados do TOTVS ERP, cruza dados por código de item e exibe um dashboard interativo com métricas, filtros e variações de custo.
+Comparativo de inventário mensal para a Implatec Perfis Plásticos. Processa relatórios PDF (MOD7) e CSV exportados do TOTVS ERP, cataloga os dados por mês no banco, e exibe um dashboard interativo comparando as oscilações de custo entre dois períodos selecionados.
 
 **Desenvolvedor:** Thiago Fischer
 **Empresa:** Implatec Perfis Plásticos — CNPJ 00.716.481/0001-36
@@ -10,9 +10,9 @@ Comparativo de inventário entre dois meses para a Implatec Perfis Plásticos. P
 
 ## Funcionalidades
 
-- **Upload de arquivos** — Arraste ou clique para enviar PDFs (MOD7) ou CSVs
-- **Parsing automático** — Extrai linhas pipe-delimitadas do relatório TOTVS e infere categorias por prefixo do código
-- **Seletor de períodos** — Define qual arquivo corresponde a Mês 1 (referência) e Mês 2 (comparado)
+- **Catálogo Mensal** — Faça upload de um PDF (MOD7) ou CSV para catalogar o inventário de um mês específico no banco de dados.
+- **Parsing automático** — Extrai linhas pipe-delimitadas do relatório TOTVS e infere categorias por prefixo do código.
+- **Comparativo Dinâmico** — Selecione dois meses do catálogo no banco para cruzar os dados.
 - **Dashboard interativo**:
   - Cards de métricas: total de itens, valores por mês, delta, itens com custo subiu/baixou, novos/removidos
   - Resumo consolidado por categoria (PA, CO, MP, EM, AG, RE)
@@ -20,7 +20,7 @@ Comparativo de inventário entre dois meses para a Implatec Perfis Plásticos. P
   - Filtros: visualização (todos/alterados), categoria, variação de custo, busca textual
   - Ordenação por qualquer coluna
   - Paginação (25 itens por página)
-- **Salvar & Compartilhar** — Salva a análise no Supabase e gera um link compartilhável
+- **Compartilhamento** — Gera um link compartilhável instantâneo da comparação gerada.
 - **Tema claro/escuro** — Alternância com persistência em localStorage
 
 ## Tech Stack
@@ -39,10 +39,11 @@ Comparativo de inventário entre dois meses para a Implatec Perfis Plásticos. P
 ```
 ├── index.html              # Aplicação SPA completa (frontend)
 ├── api/
-│   ├── save.js             # POST — salva análise no Supabase
-│   └── load.js             # GET  — carrega análise por ID
+│   ├── save_inventory.js   # POST — salva inventário de um mês no Supabase
+│   ├── list_inventories.js # GET  — lista os meses já catalogados
+│   └── get_inventory.js    # GET  — carrega itens de um inventário específico
 ├── package.json            # Dependências Node.js (API)
-├── sql-criar-tabela.sql    # Script para criar a tabela no Supabase
+├── sql-criar-tabela-mensal.sql # Script para criar a tabela no Supabase
 ├── .env.example            # Template de variáveis de ambiente
 ├── .gitignore
 └── README.md
@@ -68,7 +69,7 @@ cp .env.example .env
 #   VITE_SUPABASE_ANON_KEY=suachaveanon
 
 # 3. Criar a tabela no Supabase
-# Execute o conteúdo de sql-criar-tabela.sql no SQL Editor do Supabase
+# Execute o conteúdo de sql-criar-tabela-mensal.sql no SQL Editor do Supabase
 
 # 4. Rodar localmente com Vercel CLI
 npx vercel dev
@@ -93,11 +94,11 @@ Acesse `http://localhost:3000`.
 
 ## Uso
 
-1. Abra o link do Vercel
-2. Faça upload de dois arquivos de inventário (PDF ou CSV)
-3. Selecione qual arquivo corresponde a cada mês
-4. Analise o dashboard com métricas, filtros e tabela comparativa
-5. Clique em **Salvar** para gerar um link compartilhável
+1. Abra o link da aplicação.
+2. Clique em **Catalogar Novo Mês**, escolha um arquivo PDF/CSV e informe o mês/ano de referência.
+3. Após ter mais de um mês catalogado, vá em **Comparar Meses**.
+4. Selecione os dois meses que deseja comparar e analise o dashboard com métricas, filtros e tabela.
+5. Clique em **Compartilhar** para copiar um link direto para essa visualização.
 
 ## Formato do PDF (MOD7 — TOTVS)
 

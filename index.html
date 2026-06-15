@@ -50,6 +50,9 @@ body {
   letter-spacing: 0.05em; text-transform: uppercase; background: var(--info-bg); color: var(--info);
   border: 1px solid rgba(88,166,255,0.3); }
 
+/* Menu */
+.menu-card:hover { background: var(--bg-hover) !important; border-color: var(--accent) !important; }
+
 /* Upload screen */
 .upload-box { max-width: 600px; margin: 4rem auto; }
 .upload-box h1 { font-size: 1.75rem; font-weight: 700; text-align: center; margin-bottom: 0.5rem; }
@@ -77,8 +80,6 @@ body {
 .btn-ghost { background: var(--btn-bg); color: var(--text); border: 1px solid var(--border); }
 .btn-ghost:hover { background: var(--btn-hover); }
 .btn-block { width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
-.mt-4 { margin-top: 1rem; }
-.mt-6 { margin-top: 1.5rem; }
 
 /* Month select */
 .select-box { max-width: 500px; margin: 6rem auto; text-align: center; }
@@ -178,30 +179,54 @@ td.desc { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow
 .spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid var(--border);
   border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; margin-bottom: 0.5rem; }
 @keyframes spin { to { transform: rotate(360deg); } }
-@media print { body { background: #fff; } .top-bar .btn, .top-bar .badge, .filters, .pg, .modal-overlay, #btn-save { display: none !important; } .tbl-wrap { box-shadow: none; border: 1px solid #ccc; } }
+@media print { body { background: #fff; } .top-bar .btn, .top-bar .badge, .filters, .pg, .modal-overlay, #btn-share { display: none !important; } .tbl-wrap { box-shadow: none; border: 1px solid #ccc; } }
 </style>
 </head>
 <body>
 
 <div class="wrap">
+  <!-- ==================== SCREEN: MENU ==================== -->
+  <div id="screen-menu" class="screen active">
+    <div class="upload-box" style="margin-top: 6rem;">
+      <h1>Análise de Custos de Inventário</h1>
+      <p class="sub">Sistema de catalogação e comparativo mensal.</p>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 3rem;">
+        <div class="menu-card" onclick="showUpload()" style="padding: 2rem; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; transition: all 0.2s;">
+          <h3 style="margin-bottom: 0.5rem;">Catalogar Novo Mês</h3>
+          <p style="font-size: 0.85rem; color: var(--text-sec)">Importe um arquivo PDF ou CSV para salvar no histórico.</p>
+        </div>
+        <div class="menu-card" onclick="showSelect()" style="padding: 2rem; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; transition: all 0.2s;">
+          <h3 style="margin-bottom: 0.5rem;">Comparar Meses</h3>
+          <p style="font-size: 0.85rem; color: var(--text-sec)">Selecione dois meses já catalogados para ver oscilações.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ==================== SCREEN: UPLOAD ==================== -->
-  <div id="screen-upload" class="screen active">
+  <div id="screen-upload" class="screen">
     <div class="upload-box">
-      <h1>Importar Inventário</h1>
-      <p class="sub">Faça upload dos arquivos de inventário (PDF ou CSV).</p>
+      <h1>Catalogar Inventário</h1>
+      <p class="sub">Faça upload de 1 arquivo de inventário (PDF MOD7 ou CSV).</p>
+
+      <div style="margin-bottom: 1.5rem; text-align: left;">
+        <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem;">Mês de Referência:</label>
+        <input type="month" id="month-input" onchange="checkUploadReady()" style="width: 100%; padding: 0.6rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--input-bg); color: var(--text); font-family: var(--font-sans);">
+      </div>
 
       <div id="file-list" class="file-list"></div>
 
       <div id="drop-zone" class="drop-zone" role="button" tabindex="0">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        <p><strong>Clique</strong> para selecionar arquivo</p>
+        <p><strong>Clique</strong> para selecionar o arquivo</p>
       </div>
-      <input id="file-input" type="file" accept=".pdf,.csv" style="display:none" multiple>
+      <input id="file-input" type="file" accept=".pdf,.csv" style="display:none">
 
-      <button id="btn-next-step" class="btn btn-primary btn-block mt-6" disabled onclick="showSelect()">
-        Continuar <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-      </button>
-      <button class="btn btn-ghost btn-block mt-4" onclick="loadSample()">Teste Rápido (Dados de Exemplo)</button>
+      <div style="display:flex; gap:1rem; margin-top: 2rem;">
+        <button class="btn btn-ghost" style="flex:1" onclick="showMenu()">Voltar</button>
+        <button id="btn-save-catalog" class="btn btn-primary" style="flex:2" disabled onclick="saveInventory()">Salvar no Catálogo</button>
+      </div>
     </div>
   </div>
 
@@ -209,8 +234,13 @@ td.desc { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow
   <div id="screen-select" class="screen">
     <div class="select-box">
       <h2>Selecionar Períodos</h2>
-      <p>Defina qual arquivo corresponde a cada mês.</p>
-      <div class="select-row">
+      <p>Defina quais meses catalogados você deseja comparar.</p>
+      
+      <div id="select-loading" style="display:none; margin-bottom: 2rem; color: var(--text-sec);">
+        <div class="spinner"></div><br>Carregando catálogo...
+      </div>
+
+      <div class="select-row" id="select-controls">
         <div class="select-group">
           <label>Mês 1 (Referência)</label>
           <select id="sel-mes1"></select>
@@ -223,9 +253,9 @@ td.desc { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow
           <select id="sel-mes2"></select>
         </div>
       </div>
-      <div style="display:flex; gap:1rem;">
-        <button class="btn btn-ghost" style="flex:1" onclick="showUpload()">Voltar</button>
-        <button class="btn btn-primary" style="flex:1" onclick="confirmMonths()">Gerar Comparativo</button>
+      <div style="display:flex; gap:1rem;" id="select-buttons">
+        <button class="btn btn-ghost" style="flex:1" onclick="showMenu()">Voltar</button>
+        <button id="btn-compare" class="btn btn-primary" style="flex:1" onclick="confirmMonths()">Gerar Comparativo</button>
       </div>
     </div>
   </div>
@@ -238,10 +268,10 @@ td.desc { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow
         <p id="dash-subtitle">Custo Médio &nbsp;·&nbsp; CNPJ 00.716.481/0001-36</p>
       </div>
       <div style="display:flex; gap:0.75rem; align-items:center;">
-        <button class="btn btn-ghost" onclick="showUpload()" style="padding:0.4rem 1rem;font-size:0.85rem;">← Novo Upload</button>
-        <button id="btn-save" class="btn btn-ghost" onclick="saveAnalysis()" style="padding:0.4rem 1rem;font-size:0.85rem;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-          Salvar
+        <button class="btn btn-ghost" onclick="showMenu()" style="padding:0.4rem 1rem;font-size:0.85rem;">← Menu Inicial</button>
+        <button id="btn-share" class="btn btn-ghost" onclick="shareCurrentAnalysis()" style="padding:0.4rem 1rem;font-size:0.85rem;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+          Compartilhar
         </button>
         <button id="theme-toggle" class="badge" style="cursor:pointer;display:flex;align-items:center;gap:6px;background:var(--btn-bg);color:var(--text);border:1px solid var(--border);box-shadow:none;" onclick="toggleTheme()">
           <span id="theme-icon">🌙 Escuro</span>
@@ -315,8 +345,8 @@ td.desc { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow
   <!-- ==================== SHARE MODAL ==================== -->
   <div id="share-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeShareModal()">
     <div class="modal">
-      <h3>Análise Salva!</h3>
-      <p>Compartilhe o link para acessar de qualquer lugar:</p>
+      <h3>Comparativo Gerado!</h3>
+      <p>Compartilhe o link para acessar diretamente essa visualização:</p>
       <div class="share-link-box">
         <input type="text" id="share-link" readonly onclick="this.select()">
         <button onclick="copyLink()">Copiar</button>
@@ -331,8 +361,12 @@ td.desc { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow
 const CAT_LABEL = {PA:"Produto Acabado",CO:"Composto",MP:"Matéria Prima",EM:"Embalagem",AG:"Agregado",RE:"Refugo"};
 const CAT_PREFIX = {PA:"01",CO:"03",MP:"04",AG:"05",EM:"06",RE:"11"};
 const REV_PREFIX = Object.fromEntries(Object.entries(CAT_PREFIX).map(([k,v])=>({prefix:v,cat:k})));
-let processedFiles = [];
-let mes1Idx = 0, mes2Idx = 1;
+
+let uploadedFile = null; // Apenas 1 arquivo para catalogar
+let catalogList = []; // Lista de inventários vindos da API
+let currentM1_id = null;
+let currentM2_id = null;
+
 let data = [];
 let filtered = [];
 let sortKey = null, sortDir = 1, page = 0;
@@ -363,13 +397,25 @@ function showScreen(id) {
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
   document.getElementById(id).classList.add("active");
 }
+function showMenu() {
+  showScreen("screen-menu");
+  resetUploadState();
+}
 function showUpload() {
   showScreen("screen-upload");
-  document.querySelector(".upload-box").style.display = "";
-  document.getElementById("btn-save").style.display = "";
-  updateFileList();
+  resetUploadState();
+  
+  // Set current month to input
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  document.getElementById("month-input").value = `${yyyy}-${mm}`;
+  checkUploadReady();
 }
-function showSelect() { showScreen("screen-select"); updateSelects(); }
+function showSelect() { 
+  showScreen("screen-select"); 
+  fetchCatalog(); 
+}
 function showDashboard() { showScreen("screen-dashboard"); }
 
 // ==================== PDF/CSV PARSING ====================
@@ -447,13 +493,18 @@ async function processFile(file, onProgress) {
 }
 
 // ==================== UPLOAD UI ====================
+function resetUploadState() {
+  uploadedFile = null;
+  document.getElementById("file-input").value = '';
+  document.getElementById("file-list").innerHTML = '';
+  checkUploadReady();
+}
+
 document.getElementById("file-input").addEventListener("change", async e => {
   const files = Array.from(e.target.files);
   if (!files.length) return;
-  for (const f of files) {
-    if (processedFiles.some(x => x.name === f.name)) continue;
-    await addFile(f);
-  }
+  // Só manter o último arquivo selecionado
+  await addFile(files[0]);
   e.target.value = '';
 });
 
@@ -476,17 +527,17 @@ dropZone.addEventListener("drop", e => {
   dropZone.style.borderColor = "";
   dropZone.style.background = "";
   const files = Array.from(e.dataTransfer.files);
-  files.forEach(f => {
-    if (processedFiles.some(x => x.name === f.name)) return;
-    addFile(f);
-  });
+  if(files.length > 0) addFile(files[0]);
 });
 
 async function addFile(file) {
+  const list = document.getElementById("file-list");
+  list.innerHTML = '';
+  
   const item = document.createElement("div");
   item.className = "file-item";
   item.innerHTML = `<span class="name">${file.name}</span><span class="meta">Processando...</span>`;
-  document.getElementById("file-list").appendChild(item);
+  list.appendChild(item);
   const meta = item.querySelector(".meta");
 
   try {
@@ -494,65 +545,106 @@ async function addFile(file) {
       if (meta) meta.textContent = `Pagina ${p} de ${total}...`;
     });
     if (result) {
-      processedFiles.push(result);
+      uploadedFile = result;
       item.innerHTML = `<span class="name">${result.name}</span><span class="meta">${result.items.length} itens</span>
-        <button class="del" onclick="removeFile(${processedFiles.length - 1})">
+        <button class="del" onclick="resetUploadState()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>`;
     }
   } catch(err) {
+    uploadedFile = null;
     item.innerHTML = `<span class="name">${file.name}</span><span class="meta" style="color:var(--danger)">Erro ao processar</span>`;
     console.error(err);
   }
-  updateFileList();
+  checkUploadReady();
 }
 
-function removeFile(idx) {
-  processedFiles.splice(idx, 1);
-  updateFileList();
+function checkUploadReady() {
+  const hasMonth = !!document.getElementById("month-input").value;
+  const hasFile = !!uploadedFile;
+  document.getElementById("btn-save-catalog").disabled = !(hasMonth && hasFile);
 }
 
-function updateFileList() {
-  const list = document.getElementById("file-list");
-  list.innerHTML = '';
-  processedFiles.forEach((f, i) => {
-    const div = document.createElement("div");
-    div.className = "file-item";
-    div.innerHTML = `<span class="name">${f.name}</span><span class="meta">${f.items.length} itens</span>
-      <button class="del" onclick="removeFile(${i})">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>`;
-    list.appendChild(div);
-  });
-  document.getElementById("btn-next-step").disabled = processedFiles.length < 2;
+async function saveInventory() {
+  const btn = document.getElementById("btn-save-catalog");
+  const monthRaw = document.getElementById("month-input").value;
+  if(!uploadedFile || !monthRaw) return;
+  
+  // Converter 'YYYY-MM' para algo legível, se desejar. Mas 'YYYY-MM' é bom pra ordenar.
+  const [yyyy, mm] = monthRaw.split('-');
+  const month_year = `${mm}/${yyyy}`;
+
+  btn.disabled = true; btn.textContent = "Salvando...";
+  try {
+    const res = await fetch("/api/save_inventory", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        month_year,
+        filename: uploadedFile.name,
+        data: uploadedFile.items
+      })
+    });
+    const result = await res.json();
+    if (result.id) {
+      showToast("Mês catalogado com sucesso!");
+      setTimeout(() => showMenu(), 1500);
+    }
+    else {
+      showToast("Erro: " + (result.error || "desconhecido"));
+    }
+  } catch(e) {
+    showToast("Erro de conexão ao salvar");
+  }
+  btn.disabled = false; btn.textContent = "Salvar no Catálogo";
 }
 
 // ==================== SELECT MONTHS ====================
-function updateSelects() {
+async function fetchCatalog() {
+  document.getElementById("select-loading").style.display = "block";
+  document.getElementById("select-controls").style.display = "none";
+  document.getElementById("btn-compare").disabled = true;
+
+  try {
+    const res = await fetch("/api/list_inventories");
+    catalogList = await res.json();
+    if (res.ok && catalogList.length > 0) {
+      populateSelects();
+      document.getElementById("select-controls").style.display = "flex";
+      document.getElementById("btn-compare").disabled = catalogList.length < 2;
+    } else {
+      document.getElementById("select-loading").innerHTML = "Nenhum inventário catalogado ainda.<br><br><button class='btn btn-ghost' onclick='showUpload()'>Catalogar Primeiro Mês</button>";
+      return;
+    }
+  } catch(e) {
+    document.getElementById("select-loading").textContent = "Erro ao carregar o catálogo.";
+  }
+  document.getElementById("select-loading").style.display = "none";
+}
+
+function populateSelects() {
   const s1 = document.getElementById("sel-mes1");
   const s2 = document.getElementById("sel-mes2");
   s1.innerHTML = ''; s2.innerHTML = '';
-  processedFiles.forEach((f, i) => {
-    s1.innerHTML += `<option value="${i}" ${i === mes2Idx ? 'disabled' : ''}>${f.name}</option>`;
-    s2.innerHTML += `<option value="${i}" ${i === mes1Idx ? 'disabled' : ''}>${f.name}</option>`;
+  
+  catalogList.forEach(f => {
+    s1.innerHTML += `<option value="${f.id}">${f.month_year}</option>`;
+    s2.innerHTML += `<option value="${f.id}">${f.month_year}</option>`;
   });
-  s1.value = mes1Idx;
-  s2.value = mes2Idx;
+  
+  if (catalogList.length > 1) {
+    s1.value = catalogList[1].id; // Mês anterior
+    s2.value = catalogList[0].id; // Mês atual
+  } else if (catalogList.length === 1) {
+    s1.value = catalogList[0].id;
+    s2.value = catalogList[0].id;
+  }
 }
 
-document.getElementById("sel-mes1").addEventListener("change", e => {
-  mes1Idx = Number(e.target.value);
-  updateSelects();
-});
-document.getElementById("sel-mes2").addEventListener("change", e => {
-  mes2Idx = Number(e.target.value);
-  updateSelects();
-});
-
-// ==================== CROSS FILES ====================
-function crossFiles(m1, m2) {
-  const map1 = new Map(m1.items.map(i => [i.cod, i]));
-  const map2 = new Map(m2.items.map(i => [i.cod, i]));
+// ==================== CROSS FILES & API FETCH ====================
+function crossFiles(m1Data, m2Data) {
+  const map1 = new Map(m1Data.map(i => [i.cod, i]));
+  const map2 = new Map(m2Data.map(i => [i.cod, i]));
   const all = new Set([...map1.keys(), ...map2.keys()]);
   const merged = [];
   for (const cod of all) {
@@ -568,45 +660,50 @@ function crossFiles(m1, m2) {
   return merged;
 }
 
-function confirmMonths() {
-  const merged = crossFiles(processedFiles[mes1Idx], processedFiles[mes2Idx]);
-  data = merged.map(r => ({ ...r, ...computeDeltas(r) }));
-  document.getElementById("dash-subtitle").textContent =
-    `${processedFiles[mes1Idx].name} vs ${processedFiles[mes2Idx].name} · Custo Médio`;
-  showDashboard();
-  renderMetrics();
-  renderSummary();
-  applyFilter();
+async function confirmMonths() {
+  const id1 = document.getElementById("sel-mes1").value;
+  const id2 = document.getElementById("sel-mes2").value;
+  
+  if (!id1 || !id2) return;
+  await loadAndCompare(id1, id2);
 }
 
-// ==================== SAMPLE DATA ====================
-function loadSample() {
-  const RAW = [
-    ["0300092A","COMPOSTO DE PVC FLEXIVEL","CO",0,0,0,49.8,7.049,351.04],
-    ["0300147A","COMPOSTO DE PVC RIGIDO B","CO",153.68,5.5217,848.58,29.34,11.7256,344.03],
-    ["0300147B","COMPOSTO DE PVC RIGIDO B","CO",679.893,5.0057,3403.34,504.373,5.0057,2524.74],
-    ["0400080A","MASTER DE PVC PTO 001","MP",265.197,23.5486,6245.01,153.52,23.5483,3615.13],
-    ["0400198A","PVC RIGIDO MARFIM","MP",18588.5,10.5412,195945.04,17850,10.8186,193111.3],
-    ["0400194A","PVC RIGIDO CRI 001","MP",8835.282,13.5164,119421.49,10737.742,13.0758,140404.27],
-    ["0500001A","FITA DUPLA FACE 9,5MM CR","AG",1724.19,0.6606,1138.92,808.73,0.6605,534.17],
-    ["0500002A","FITA DUPLA FACE 10MM","AG",4848.84,0.6388,3097.28,1065.95,0.6388,680.96],
-    ["0600007A","FITA ADESIVA TRANSPARENT","EM",46488.23,0.0449,2085.02,36801.725,0.0449,1650.56],
-    ["0600024A","CAIXA PAPELÃO Nº02","EM",1100.74,3.1248,3439.54,984.03,3.1248,3074.85],
-    ["1100060A","REFUGO PVC RIGIDO CRI","RE",662.48,0.7042,466.49,313.3,29.5462,9256.82],
-    ["1100080A","REFUGO PVC RIGIDO DIV","RE",8.495,8.7981,74.74,1182.97,9.2938,10994.23],
-    ["0101808I065R/A","PF PORTA ETIQ 35MM","PA",91,2.1488,195.54,124,2.9919,371],
-    ["0107628I205R","PF EMENDA DE CHAPAS","PA",553,5.9453,3287.74,338,5.9453,2009.51],
-    ["0108275I248R","PF Z P/ CHECK-OUT","PA",74,2.4703,182.8,70,2.4703,172.92],
-    ["0109928I005F","PF ACAB 50MM C/ DF P","PA",3,179.23,537.69,3,84.7467,254.24]
-  ];
-  data = RAW.map(r => {
-    const [cod,desc,cat,qAbr,uAbr,pAbr,qMai,uMai,pMai] = r;
-    return { cod, desc, cat, q1: qAbr, u1: uAbr, p1: pAbr, q2: qMai, u2: uMai, p2: pMai, ...computeDeltas({ q1: qAbr, u1: uAbr, p1: pAbr, q2: qMai, u2: uMai, p2: pMai }) };
-  });
+async function loadAndCompare(id1, id2) {
+  const btn = document.getElementById("btn-compare");
+  if(btn) { btn.disabled = true; btn.textContent = "Baixando dados..."; }
+  
   showDashboard();
-  renderMetrics();
-  renderSummary();
-  applyFilter();
+  document.getElementById("metrics").innerHTML = '<div class="loading"><div class="spinner"></div><p>Buscando dados no banco...</p></div>';
+  
+  try {
+    const [res1, res2] = await Promise.all([
+      fetch(`/api/get_inventory?id=${encodeURIComponent(id1)}`),
+      fetch(`/api/get_inventory?id=${encodeURIComponent(id2)}`)
+    ]);
+    
+    if(!res1.ok || !res2.ok) throw new Error("Erro ao buscar dados dos meses");
+    
+    const inv1 = await res1.json();
+    const inv2 = await res2.json();
+    
+    currentM1_id = inv1.id;
+    currentM2_id = inv2.id;
+    
+    const merged = crossFiles(inv1.data, inv2.data);
+    data = merged.map(r => ({ ...r, ...computeDeltas(r) }));
+    
+    document.getElementById("dash-subtitle").textContent =
+      `${inv1.month_year} vs ${inv2.month_year} · Custo Médio`;
+      
+    renderMetrics();
+    renderSummary();
+    applyFilter();
+    
+  } catch(e) {
+    document.getElementById("metrics").innerHTML = `<div style="text-align:center;padding:3rem;color:var(--danger)"><p>${e.message}</p><button class="btn btn-primary mt-4" onclick="showSelect()">← Voltar</button></div>`;
+  }
+  
+  if(btn) { btn.disabled = false; btn.textContent = "Gerar Comparativo"; }
 }
 
 // ==================== DASHBOARD RENDERING ====================
@@ -772,31 +869,9 @@ function exportCSV() {
 }
 
 // ==================== SAVE & SHARE ====================
-async function saveAnalysis() {
-  const btn = document.getElementById("btn-save");
-  btn.disabled = true; btn.textContent = "Salvando...";
-  try {
-    const res = await fetch("/api/save", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: null,
-        mes1_name: processedFiles[mes1Idx]?.name || "M\u00eas 1",
-        mes2_name: processedFiles[mes2Idx]?.name || "M\u00eas 2",
-        data
-      })
-    });
-    const result = await res.json();
-    if (result.id) showShareModal(result.id);
-    else showToast("Erro: " + (result.error || "desconhecido"));
-  } catch(e) {
-    showToast("Erro de conex\u00e3o ao salvar");
-  }
-  btn.disabled = false; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Salvar';
-}
-
-function showShareModal(id) {
-  const link = window.location.origin + window.location.pathname + "?id=" + id;
+function shareCurrentAnalysis() {
+  if(!currentM1_id || !currentM2_id) return;
+  const link = window.location.origin + window.location.pathname + `?m1=${currentM1_id}&m2=${currentM2_id}`;
   document.getElementById("share-link").value = link;
   document.getElementById("share-modal").style.display = "flex";
 }
@@ -824,31 +899,159 @@ function showToast(msg) {
   setTimeout(() => t.remove(), 2500);
 }
 
-async function loadAnalysis(id) {
-  document.getElementById("screen-upload").classList.remove("active");
-  document.getElementById("screen-select").classList.remove("active");
-  document.getElementById("screen-dashboard").classList.add("active");
-  document.querySelector(".upload-box").style.display = "none";
-  document.getElementById("metrics").innerHTML = '<div class="loading"><div class="spinner"></div><p>Carregando an\u00e1lise...</p></div>';
-  try {
-    const res = await fetch("/api/load?id=" + encodeURIComponent(id));
-    if (!res.ok) throw new Error("N\u00e3o encontrada");
-    const analysis = await res.json();
-    data = analysis.data.map(r => ({ ...r, ...computeDeltas(r) }));
-    document.getElementById("dash-subtitle").textContent =
-      (analysis.mes1_name || "M\u00eas 1") + " vs " + (analysis.mes2_name || "M\u00eas 2") + " \u00b7 Custo M\u00e9dio";
-    renderMetrics();
-    renderSummary();
-    applyFilter();
-    document.getElementById("btn-save").style.display = "none";
-  } catch(e) {
-    document.getElementById("metrics").innerHTML = '<div style="text-align:center;padding:3rem;color:var(--danger)"><p>Erro ao carregar an\u00e1lise. Link inv\u00e1lido ou expirado.</p><button class="btn btn-primary mt-4" onclick="showUpload()">\u2190 Voltar ao in\u00edcio</button></div>';
+// ==================== SUPABASE KEEP-ALIVE ====================
+// Faz um ping leve no banco a cada 4 minutos para evitar que o projeto
+// no Supabase (plano gratuito) pause por inatividade.
+(function startKeepAlive() {
+  const INTERVAL_MS = 4 * 60 * 1000; // 4 minutos
+
+  async function ping() {
+    try {
+      const res = await fetch('/api/keepalive', { cache: 'no-store' });
+      const json = await res.json();
+      console.debug('[keep-alive] ping ok', json.ts);
+    } catch (err) {
+      console.warn('[keep-alive] ping falhou, Supabase pode estar acordando...', err);
+    }
+  }
+
+  // Primeiro ping logo ao carregar a página
+  ping();
+  setInterval(ping, INTERVAL_MS);
+})();
+
+// ==================== FETCH COM RETRY (wake-up do Supabase) ====================
+// Supabase pode levar alguns segundos para acordar após ficar inativo.
+// Esta função envolve o fetch com até 3 tentativas e backoff exponencial.
+async function fetchWithRetry(url, options = {}, maxRetries = 3) {
+  const RETRY_DELAYS = [2000, 5000, 10000]; // ms entre tentativas
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await fetch(url, options);
+
+      // Se o servidor retornou 5xx (possível cold start), tenta novamente
+      if (res.status >= 500 && attempt < maxRetries) {
+        const delay = RETRY_DELAYS[attempt] || 10000;
+        console.warn(`[retry] ${url} retornou ${res.status}. Nova tentativa em ${delay/1000}s...`);
+        if (attempt === 0) showToast('Conectando ao banco de dados...');
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+
+      return res; // Sucesso ou erro não-5xx
+    } catch (err) {
+      if (attempt < maxRetries) {
+        const delay = RETRY_DELAYS[attempt] || 10000;
+        console.warn(`[retry] ${url} falhou (${err.message}). Nova tentativa em ${delay/1000}s...`);
+        if (attempt === 0) showToast('Aguardando conexão com o banco...');
+        await new Promise(r => setTimeout(r, delay));
+      } else {
+        throw err; // Esgotou as tentativas
+      }
+    }
   }
 }
 
+// Substitui os fetch das rotas de API pelo fetchWithRetry
+const _origSaveInventory = saveInventory;
+saveInventory = async function() {
+  const btn = document.getElementById('btn-save-catalog');
+  const monthRaw = document.getElementById('month-input').value;
+  if (!uploadedFile || !monthRaw) return;
+
+  const [yyyy, mm] = monthRaw.split('-');
+  const month_year = `${mm}/${yyyy}`;
+
+  btn.disabled = true; btn.textContent = 'Salvando...';
+  try {
+    const res = await fetchWithRetry('/api/save_inventory', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ month_year, filename: uploadedFile.name, data: uploadedFile.items })
+    });
+    const result = await res.json();
+    if (result.id) {
+      showToast('Mês catalogado com sucesso!');
+      setTimeout(() => showMenu(), 1500);
+    } else {
+      showToast('Erro: ' + (result.error || 'desconhecido'));
+    }
+  } catch (e) {
+    showToast('Erro de conexão ao salvar');
+  }
+  btn.disabled = false; btn.textContent = 'Salvar no Catálogo';
+};
+
+const _origFetchCatalog = fetchCatalog;
+fetchCatalog = async function() {
+  document.getElementById('select-loading').style.display = 'block';
+  document.getElementById('select-controls').style.display = 'none';
+  document.getElementById('btn-compare').disabled = true;
+
+  try {
+    const res = await fetchWithRetry('/api/list_inventories');
+    catalogList = await res.json();
+    if (res.ok && catalogList.length > 0) {
+      populateSelects();
+      document.getElementById('select-controls').style.display = 'flex';
+      document.getElementById('btn-compare').disabled = catalogList.length < 2;
+    } else {
+      document.getElementById('select-loading').innerHTML = "Nenhum inventário catalogado ainda.<br><br><button class='btn btn-ghost' onclick='showUpload()'>Catalogar Primeiro Mês</button>";
+      return;
+    }
+  } catch (e) {
+    document.getElementById('select-loading').textContent = 'Erro ao carregar o catálogo.';
+  }
+  document.getElementById('select-loading').style.display = 'none';
+};
+
+const _origLoadAndCompare = loadAndCompare;
+loadAndCompare = async function(id1, id2) {
+  const btn = document.getElementById('btn-compare');
+  if (btn) { btn.disabled = true; btn.textContent = 'Baixando dados...'; }
+
+  showDashboard();
+  document.getElementById('metrics').innerHTML = '<div class="loading"><div class="spinner"></div><p>Buscando dados no banco...</p></div>';
+
+  try {
+    const [res1, res2] = await Promise.all([
+      fetchWithRetry(`/api/get_inventory?id=${encodeURIComponent(id1)}`),
+      fetchWithRetry(`/api/get_inventory?id=${encodeURIComponent(id2)}`)
+    ]);
+
+    if (!res1.ok || !res2.ok) throw new Error('Erro ao buscar dados dos meses');
+
+    const inv1 = await res1.json();
+    const inv2 = await res2.json();
+
+    currentM1_id = inv1.id;
+    currentM2_id = inv2.id;
+
+    const merged = crossFiles(inv1.data, inv2.data);
+    data = merged.map(r => ({ ...r, ...computeDeltas(r) }));
+
+    document.getElementById('dash-subtitle').textContent =
+      `${inv1.month_year} vs ${inv2.month_year} · Custo Médio`;
+
+    renderMetrics();
+    renderSummary();
+    applyFilter();
+
+  } catch (e) {
+    document.getElementById('metrics').innerHTML = `<div style="text-align:center;padding:3rem;color:var(--danger)"><p>${e.message}</p><button class="btn btn-primary mt-4" onclick="showSelect()">← Voltar</button></div>`;
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = 'Gerar Comparativo'; }
+};
+
+// ==================== INIT ====================
 (function() {
   const p = new URLSearchParams(window.location.search);
-  if (p.has("id")) loadAnalysis(p.get("id"));
+  // Compatibilidade com a rota antiga (opcional), mas vamos focar na nova `m1` e `m2`
+  if (p.has('m1') && p.has('m2')) {
+    loadAndCompare(p.get('m1'), p.get('m2'));
+  }
 })();
 </script>
 </body>
