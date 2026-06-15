@@ -200,6 +200,10 @@ td.desc { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow
           <h3 style="margin-bottom: 0.5rem;">Comparar Meses</h3>
           <p style="font-size: 0.85rem; color: var(--text-sec)">Selecione dois meses já catalogados para ver oscilações.</p>
         </div>
+        <div class="menu-card" onclick="showManage()" style="padding: 2rem; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; transition: all 0.2s;">
+          <h3 style="margin-bottom: 0.5rem;">Gerenciar Dados</h3>
+          <p style="font-size: 0.85rem; color: var(--text-sec)">Visualizar, substituir ou remover inventários catalogados.</p>
+        </div>
       </div>
     </div>
   </div>
@@ -342,6 +346,37 @@ td.desc { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow
   </div>
 </div>
 
+  <!-- ==================== SCREEN: MANAGE DATA ==================== -->
+  <div id="screen-manage" class="screen">
+    <div class="upload-box" style="margin-top: 2rem;">
+      <h1>Gerenciar Inventários</h1>
+      <p class="sub">Visualize, substitua ou remova dados catalogados.</p>
+
+      <div id="manage-loading" style="display:none; margin-bottom: 1rem; color: var(--text-sec);">
+        <div class="spinner"></div><br>Carregando...
+      </div>
+
+      <div id="manage-list" style="margin-bottom: 2rem;"></div>
+
+      <div id="manage-actions" style="display:none; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border);">
+        <button class="btn btn-ghost" style="flex:1" onclick="showMenu()">← Voltar</button>
+        <button id="btn-clear-all" class="btn btn-primary" style="background:var(--danger);flex:2" onclick="confirmClearAll()">Excluir Todos os Dados</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL CONFIRM ==================== -->
+  <div id="modal-confirm" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal()">
+    <div class="modal">
+      <h3 id="modal-title">Confirmação</h3>
+      <p id="modal-msg">Tem certeza?</p>
+      <div style="display:flex;gap:0.75rem;justify-content:flex-end;margin-top:1rem;">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+        <button id="modal-confirm-btn" class="btn btn-primary" style="background:var(--danger)" onclick="">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ==================== SHARE MODAL ==================== -->
   <div id="share-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeShareModal()">
     <div class="modal">
@@ -433,10 +468,84 @@ function guessCategory(cod) {
   return 'PA';
 }
 
+function tryParseLine(line) {
+  const t = line.trim();
+  if (!t) return null;
+
+  // Pattern 1: Pipe-delimited MOD7 com categoria (formato original)
+  // | COD | DESCRICAO | CAT | QTD | UNIT | PARC |
+  let m = t.match(/^\|\s*(?:[0-9A-Z]+\s*)?\|\s*([^|]+)\s*\|\s*([A-Z]+)\s*\|\s*([\d.,]+)\s*\|\s*([\d.,]+)\s*\|\s*([\d.,]+)\s*\|/);
+  if (m) {
+    const full = m[1].trim();
+    const h = full.indexOf('-');
+    return {
+      cod: h !== -1 ? full.substring(0, h).trim() : full,
+      desc: h !== -1 ? full.substring(h + 1).trim() : full,
+      qty: parseBrNumber(m[3]),
+      unitCost: parseBrNumber(m[4]),
+      totalCost: parseBrNumber(m[5])
+    };
+  }
+
+  // Pattern 2: Pipe-delimited sem categoria
+  // | CODIGO | DESCRICAO | QTD | UNIT | PARC |
+  m = t.match(/^\|\s*([\w][\w\-\.]+)\s*\|\s*([^|]+)\s*\|\s*([\d.,]+)\s*\|\s*([\d.,]+)\s*\|\s*([\d.,]+)\s*\|/);
+  if (m) {
+    return {
+      cod: m[1].trim(),
+      desc: m[2].trim(),
+      qty: parseBrNumber(m[3]),
+      unitCost: parseBrNumber(m[4]),
+      totalCost: parseBrNumber(m[5])
+    };
+  }
+
+  // Pattern 3: Espaços delimitados com categoria (ex: "01001-DESCR  PA  123,456  12,34  1523,45")
+  m = t.match(/([\w]+)\s*-\s*([\w\sÀ-ÿ]+?)\s{2,}([A-Z]{2,3})\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s*$/);
+  if (m) {
+    return {
+      cod: m[1].trim(),
+      desc: m[2].trim(),
+      qty: parseBrNumber(m[4]),
+      unitCost: parseBrNumber(m[5]),
+      totalCost: parseBrNumber(m[6])
+    };
+  }
+
+  // Pattern 4: Código + descrição + 3 números no final da linha
+  // (captura o último trio de números como qty, unit, total)
+  m = t.match(/([\w][\w\-\.]+)\s+([\w\sÀ-ÿ]+?)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s*$/);
+  if (m) {
+    return {
+      cod: m[1].trim(),
+      desc: m[2].trim(),
+      qty: parseBrNumber(m[3]),
+      unitCost: parseBrNumber(m[4]),
+      totalCost: parseBrNumber(m[5])
+    };
+  }
+
+  // Pattern 5: Linha começando com código numérico e sem descrição clara
+  // Ex: "01000502  123,456   12,34  1523,45"
+  m = t.match(/^([\d]{5,}[\w]*)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s*$/);
+  if (m) {
+    return {
+      cod: m[1].trim(),
+      desc: m[1].trim(),
+      qty: parseBrNumber(m[2]),
+      unitCost: parseBrNumber(m[3]),
+      totalCost: parseBrNumber(m[4])
+    };
+  }
+
+  return null;
+}
+
 async function extractFromPdf(file, onProgress) {
   const ab = await file.arrayBuffer();
   const doc = await pdfjsLib.getDocument(ab).promise;
   const allItems = [];
+  const seen = new Set();
   for (let p = 1; p <= doc.numPages; p++) {
     if (onProgress) onProgress(p, doc.numPages);
     const page = await doc.getPage(p);
@@ -450,19 +559,18 @@ async function extractFromPdf(file, onProgress) {
     const sortedY = Array.from(rows.keys()).sort((a, b) => parseFloat(b) - parseFloat(a));
     for (const y of sortedY) {
       const items = rows.get(y).sort((a, b) => a.transform[4] - b.transform[4]);
-      const line = items.map(i => i.str).join('');
-      if (!line.startsWith('|')) continue;
-      const m = line.match(/^\|\s*(?:[0-9A-Z]+\s*)?\|\s*([^|]+)\s*\|\s*([A-Z]+)\s*\|\s*([\d.,]+)\s*\|\s*([\d.,]+)\s*\|\s*([\d.,]+)\s*\|/);
-      if (!m) continue;
-      const full = m[1].trim();
-      const h = full.indexOf('-');
-      const cod = h !== -1 ? full.substring(0, h).trim() : full;
-      const desc = h !== -1 ? full.substring(h + 1).trim() : full;
+      const line = items.map(i => i.str).join(' ');
+      const parsed = tryParseLine(line);
+      if (!parsed) continue;
+      if (seen.has(parsed.cod)) continue;
+      seen.add(parsed.cod);
       allItems.push({
-        cod, desc, cat: '',
-        qty: parseBrNumber(m[3]),
-        unitCost: parseBrNumber(m[4]),
-        totalCost: parseBrNumber(m[5])
+        cod: parsed.cod,
+        desc: parsed.desc,
+        cat: '',
+        qty: parsed.qty,
+        unitCost: parsed.unitCost,
+        totalCost: parsed.totalCost
       });
     }
   }
@@ -495,6 +603,7 @@ async function processFile(file, onProgress) {
 // ==================== UPLOAD UI ====================
 function resetUploadState() {
   uploadedFile = null;
+  pendingOverwrite = null;
   document.getElementById("file-input").value = '';
   document.getElementById("file-list").innerHTML = '';
   checkUploadReady();
@@ -565,14 +674,38 @@ function checkUploadReady() {
   document.getElementById("btn-save-catalog").disabled = !(hasMonth && hasFile);
 }
 
+let pendingOverwrite = null;
+
 async function saveInventory() {
   const btn = document.getElementById("btn-save-catalog");
   const monthRaw = document.getElementById("month-input").value;
   if(!uploadedFile || !monthRaw) return;
   
-  // Converter 'YYYY-MM' para algo legível, se desejar. Mas 'YYYY-MM' é bom pra ordenar.
   const [yyyy, mm] = monthRaw.split('-');
   const month_year = `${mm}/${yyyy}`;
+
+  // Se já existe inventário para este mês, pedir confirmação
+  if (!pendingOverwrite) {
+    try {
+      const res = await fetch("/api/list_inventories");
+      const list = await res.json();
+      const existing = list.find(f => f.month_year === month_year);
+      if (existing) {
+        showConfirm(
+          "Mês já catalogado",
+          `Já existe um inventário para ${month_year} (${existing.filename || 'sem arquivo'}). Deseja substituí-lo?`,
+          "Substituir",
+          () => {
+            pendingOverwrite = true;
+            saveInventory();
+          }
+        );
+        return;
+      }
+    } catch(e) {
+      // Se falhou ao verificar, tenta salvar direto (a API retorna erro se existir)
+    }
+  }
 
   btn.disabled = true; btn.textContent = "Salvando...";
   try {
@@ -582,10 +715,12 @@ async function saveInventory() {
       body: JSON.stringify({
         month_year,
         filename: uploadedFile.name,
-        data: uploadedFile.items
+        data: uploadedFile.items,
+        overwrite: !!pendingOverwrite
       })
     });
     const result = await res.json();
+    pendingOverwrite = null;
     if (result.id) {
       showToast("Mês catalogado com sucesso!");
       setTimeout(() => showMenu(), 1500);
@@ -594,6 +729,7 @@ async function saveInventory() {
       showToast("Erro: " + (result.error || "desconhecido"));
     }
   } catch(e) {
+    pendingOverwrite = null;
     showToast("Erro de conexão ao salvar");
   }
   btn.disabled = false; btn.textContent = "Salvar no Catálogo";
@@ -665,6 +801,10 @@ async function confirmMonths() {
   const id2 = document.getElementById("sel-mes2").value;
   
   if (!id1 || !id2) return;
+  if (id1 === id2) {
+    showToast("Selecione dois meses diferentes para comparar.");
+    return;
+  }
   await loadAndCompare(id1, id2);
 }
 
@@ -868,6 +1008,114 @@ function exportCSV() {
   URL.revokeObjectURL(a.href);
 }
 
+// ==================== MANAGE DATA ====================
+let manageCallback = null;
+
+function showManage() {
+  showScreen("screen-manage");
+  document.getElementById("manage-actions").style.display = "none";
+  loadManageList();
+}
+
+function closeModal() {
+  document.getElementById("modal-confirm").style.display = "none";
+  manageCallback = null;
+}
+
+function showConfirm(title, msg, btnText, callback) {
+  document.getElementById("modal-title").textContent = title;
+  document.getElementById("modal-msg").textContent = msg;
+  const btn = document.getElementById("modal-confirm-btn");
+  btn.textContent = btnText;
+  manageCallback = callback;
+  btn.onclick = function() {
+    closeModal();
+    if (manageCallback) manageCallback();
+  };
+  document.getElementById("modal-confirm").style.display = "flex";
+}
+
+async function loadManageList() {
+  const el = document.getElementById("manage-list");
+  const loading = document.getElementById("manage-loading");
+  loading.style.display = "block";
+  el.innerHTML = "";
+  document.getElementById("manage-actions").style.display = "none";
+
+  try {
+    const res = await fetchWithRetry("/api/list_inventories");
+    const list = await res.json();
+    loading.style.display = "none";
+
+    if (!res.ok || list.length === 0) {
+      el.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-sec)">Nenhum inventário catalogado.</div>';
+      return;
+    }
+
+    document.getElementById("manage-actions").style.display = "flex";
+    let html = '<div style="display:flex;flex-direction:column;gap:0.5rem;">';
+    list.forEach(f => {
+      html += `<div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius-md);padding:0.75rem 1rem;">
+        <div><strong>${f.month_year}</strong><br><span style="font-size:0.8rem;color:var(--text-sec)">${f.filename || 'sem arquivo'}</span></div>
+        <button class="btn btn-ghost" style="padding:0.3rem 0.8rem;font-size:0.8rem;background:var(--danger-bg);color:var(--danger);border-color:transparent;" onclick="confirmDelete('${f.id}','${f.month_year}')">Excluir</button>
+      </div>`;
+    });
+    html += '</div>';
+    el.innerHTML = html;
+  } catch(e) {
+    loading.style.display = "none";
+    el.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--danger)">Erro ao carregar lista.</div>';
+  }
+}
+
+function confirmDelete(id, monthYear) {
+  showConfirm(
+    "Excluir Inventário",
+    `Remover o inventário de ${monthYear}? Esta ação não pode ser desfeita.`,
+    "Excluir",
+    () => deleteInventory(id)
+  );
+}
+
+async function deleteInventory(id) {
+  try {
+    const res = await fetch(`/api/delete_inventory?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (res.ok) {
+      showToast("Inventário removido!");
+      loadManageList();
+    } else {
+      const err = await res.json();
+      showToast("Erro: " + (err.error || "desconhecido"));
+    }
+  } catch(e) {
+    showToast("Erro de conexão ao excluir");
+  }
+}
+
+function confirmClearAll() {
+  showConfirm(
+    "Excluir Todos os Dados",
+    "Todos os inventários catalogados serão permanentemente removidos. Tem certeza?",
+    "Excluir Tudo",
+    clearAllInventories
+  );
+}
+
+async function clearAllInventories() {
+  try {
+    const res = await fetch("/api/delete_inventory?all=true", { method: "DELETE" });
+    if (res.ok) {
+      showToast("Todos os dados foram removidos!");
+      loadManageList();
+    } else {
+      const err = await res.json();
+      showToast("Erro: " + (err.error || "desconhecido"));
+    }
+  } catch(e) {
+    showToast("Erro de conexão");
+  }
+}
+
 // ==================== SAVE & SHARE ====================
 function shareCurrentAnalysis() {
   if(!currentM1_id || !currentM2_id) return;
@@ -963,14 +1211,43 @@ saveInventory = async function() {
   const [yyyy, mm] = monthRaw.split('-');
   const month_year = `${mm}/${yyyy}`;
 
+  // Se já existe inventário para este mês, pedir confirmação
+  if (!pendingOverwrite) {
+    try {
+      const res = await fetchWithRetry('/api/list_inventories');
+      const list = await res.json();
+      const existing = list.find(f => f.month_year === month_year);
+      if (existing) {
+        showConfirm(
+          'Mês já catalogado',
+          `Já existe um inventário para ${month_year} (${existing.filename || 'sem arquivo'}). Deseja substituí-lo?`,
+          'Substituir',
+          () => {
+            pendingOverwrite = true;
+            saveInventory();
+          }
+        );
+        return;
+      }
+    } catch(e) {
+      // Se falhou ao verificar, tenta salvar direto
+    }
+  }
+
   btn.disabled = true; btn.textContent = 'Salvando...';
   try {
     const res = await fetchWithRetry('/api/save_inventory', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ month_year, filename: uploadedFile.name, data: uploadedFile.items })
+      body: JSON.stringify({
+        month_year,
+        filename: uploadedFile.name,
+        data: uploadedFile.items,
+        overwrite: !!pendingOverwrite
+      })
     });
     const result = await res.json();
+    pendingOverwrite = null;
     if (result.id) {
       showToast('Mês catalogado com sucesso!');
       setTimeout(() => showMenu(), 1500);
@@ -978,6 +1255,7 @@ saveInventory = async function() {
       showToast('Erro: ' + (result.error || 'desconhecido'));
     }
   } catch (e) {
+    pendingOverwrite = null;
     showToast('Erro de conexão ao salvar');
   }
   btn.disabled = false; btn.textContent = 'Salvar no Catálogo';

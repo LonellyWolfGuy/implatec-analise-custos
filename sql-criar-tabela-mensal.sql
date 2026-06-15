@@ -19,3 +19,8 @@ CREATE POLICY "Allow anonymous insert" ON monthly_inventories
 CREATE POLICY "Allow anonymous select" ON monthly_inventories
   FOR SELECT TO anon
   USING (true);
+
+-- Allow anyone to delete (anon)
+CREATE POLICY "Allow anonymous delete" ON monthly_inventories
+  FOR DELETE TO anon
+  USING (true);
