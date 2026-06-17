@@ -1,5 +1,5 @@
 -- CREATE TABLE monthly_inventories
-CREATE TABLE monthly_inventories (
+CREATE TABLE IF NOT EXISTS monthly_inventories (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at timestamptz DEFAULT now(),
   month_year text NOT NULL UNIQUE,
@@ -9,6 +9,11 @@ CREATE TABLE monthly_inventories (
 
 -- Enable RLS
 ALTER TABLE monthly_inventories ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow anonymous insert" ON monthly_inventories;
+DROP POLICY IF EXISTS "Allow anonymous update" ON monthly_inventories;
+DROP POLICY IF EXISTS "Allow anonymous select" ON monthly_inventories;
+DROP POLICY IF EXISTS "Allow anonymous delete" ON monthly_inventories;
 
 -- Allow anyone to insert (anon)
 CREATE POLICY "Allow anonymous insert" ON monthly_inventories
