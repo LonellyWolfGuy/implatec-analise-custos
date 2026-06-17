@@ -89,6 +89,7 @@ Acesse `http://localhost:3000`.
 |------|-------|
 | `VITE_SUPABASE_URL` | URL do seu projeto Supabase |
 | `VITE_SUPABASE_ANON_KEY` | Chave anônima do Supabase |
+| `SUPABASE_SERVICE_ROLE_KEY` | Chave service role para sobrescrever/remover inventários pelo backend |
 
 4. Clique em **Deploy**
 

@@ -1308,12 +1308,27 @@ saveInventory = async function() {
       })
     });
     const result = await res.json();
+
+    if (res.status === 409 && !pendingOverwrite) {
+      btn.disabled = false; btn.textContent = 'Salvar no Catálogo';
+      showConfirm(
+        'Mês já catalogado',
+        `Já existe um inventário para ${month_year}. Deseja substituir o cadastro existente?`,
+        'Substituir',
+        () => {
+          pendingOverwrite = true;
+          saveInventory();
+        }
+      );
+      return;
+    }
+
     pendingOverwrite = null;
     if (result.id) {
       showToast('Mês catalogado com sucesso!');
       setTimeout(() => showMenu(), 1500);
     } else {
-      showToast('Erro: ' + (result.error || 'desconhecido'));
+      showToast('Erro: ' + (result.hint || result.error || 'desconhecido'));
     }
   } catch (e) {
     pendingOverwrite = null;

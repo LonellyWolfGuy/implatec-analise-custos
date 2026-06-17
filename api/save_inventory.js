@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
-  process.env.VITE_SUPABASE_ANON_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY
 );
 
 export default async function handler(req, res) {
@@ -20,12 +20,25 @@ export default async function handler(req, res) {
     return res.status(413).json({ error: 'data array exceeds maximum of 5000 items' });
   }
 
-  // If overwrite is requested, delete existing record first
   if (overwrite) {
-    await supabase
+    const { data: record, error } = await supabase
       .from('monthly_inventories')
-      .delete()
-      .eq('month_year', month_year);
+      .upsert(
+        { month_year, filename: filename || null, data },
+        { onConflict: 'month_year' }
+      )
+      .select('id')
+      .single();
+
+    if (error) {
+      console.error('Supabase upsert error:', error);
+      return res.status(500).json({
+        error: error.message,
+        hint: 'Para substituir inventários existentes, configure SUPABASE_SERVICE_ROLE_KEY na Vercel ou adicione uma policy de UPDATE no Supabase.'
+      });
+    }
+
+    return res.json({ id: record.id, overwritten: true });
   }
 
   const { data: record, error } = await supabase

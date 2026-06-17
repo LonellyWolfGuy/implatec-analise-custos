@@ -15,6 +15,12 @@ CREATE POLICY "Allow anonymous insert" ON monthly_inventories
   FOR INSERT TO anon
   WITH CHECK (true);
 
+-- Allow anyone to update existing monthly inventories (anon)
+CREATE POLICY "Allow anonymous update" ON monthly_inventories
+  FOR UPDATE TO anon
+  USING (true)
+  WITH CHECK (true);
+
 -- Allow anyone to select by id (anon)
 CREATE POLICY "Allow anonymous select" ON monthly_inventories
   FOR SELECT TO anon
