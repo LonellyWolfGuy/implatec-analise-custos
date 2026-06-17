@@ -77,7 +77,7 @@ npx vercel dev
 
 Acesse `http://localhost:3000`.
 
-> Também funciona abrindo `index.html` diretamente no navegador (modo estático, sem API).
+> Para usar o catálogo e a comparação entre meses, execute o servidor local ou a Vercel. Abrir `index.html` diretamente no navegador não carrega as rotas `/api`.
 
 ## Deploy na Vercel
 

@@ -257,6 +257,7 @@ td.desc { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow
           <select id="sel-mes2"></select>
         </div>
       </div>
+      <p id="select-message" style="display:none; margin:-1rem 0 1.5rem; color:var(--text-sec); font-size:0.9rem;"></p>
       <div style="display:flex; gap:1rem;" id="select-buttons">
         <button class="btn btn-ghost" style="flex:1" onclick="showMenu()">Voltar</button>
         <button id="btn-compare" class="btn btn-primary" style="flex:1" onclick="confirmMonths()">Gerar Comparativo</button>
@@ -406,6 +407,56 @@ let data = [];
 let filtered = [];
 let sortKey = null, sortDir = 1, page = 0;
 const PER = 25;
+
+const MONTH_NAMES = {
+  janeiro: "01", jan: "01",
+  fevereiro: "02", fev: "02",
+  marco: "03", março: "03", mar: "03",
+  abril: "04", abr: "04",
+  maio: "05", mai: "05",
+  junho: "06", jun: "06",
+  julho: "07", jul: "07",
+  agosto: "08", ago: "08",
+  setembro: "09", set: "09",
+  outubro: "10", out: "10",
+  novembro: "11", nov: "11",
+  dezembro: "12", dez: "12"
+};
+
+function monthYearSortKey(monthYear) {
+  const m = String(monthYear || "").match(/^(\d{1,2})\/(\d{4})$/);
+  return m ? Number(m[2]) * 100 + Number(m[1]) : 0;
+}
+
+function sortCatalogList(list) {
+  return [...(Array.isArray(list) ? list : [])].sort((a, b) =>
+    monthYearSortKey(b.month_year) - monthYearSortKey(a.month_year)
+  );
+}
+
+function inferMonthInputFromFilename(filename) {
+  const base = String(filename || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const numeric = base.match(/(?:^|[^\d])(\d{1,2})[._\-/ ]+(\d{2,4})(?:[^\d]|$)/);
+  if (numeric) {
+    const mm = numeric[1].padStart(2, "0");
+    const yyyy = numeric[2].length === 2 ? `20${numeric[2]}` : numeric[2];
+    if (Number(mm) >= 1 && Number(mm) <= 12) return `${yyyy}-${mm}`;
+  }
+
+  for (const [name, mm] of Object.entries(MONTH_NAMES)) {
+    if (base.includes(name)) {
+      return `${new Date().getFullYear()}-${mm}`;
+    }
+  }
+  return "";
+}
+
+function setSelectMessage(message) {
+  const el = document.getElementById("select-message");
+  if (!el) return;
+  el.style.display = message ? "block" : "none";
+  el.textContent = message || "";
+}
 
 function computeDeltas(r) {
   const dq = r.q2 - r.q1, du = r.u2 - r.u1, dp = r.p2 - r.p1;
@@ -655,6 +706,12 @@ async function addFile(file) {
     });
     if (result) {
       uploadedFile = result;
+      const inferredMonth = inferMonthInputFromFilename(result.name);
+      const monthInput = document.getElementById("month-input");
+      if (inferredMonth && monthInput.value !== inferredMonth) {
+        monthInput.value = inferredMonth;
+        showToast(`Mês sugerido pelo arquivo: ${inferredMonth.slice(5)}/${inferredMonth.slice(0, 4)}`);
+      }
       item.innerHTML = `<span class="name">${result.name}</span><span class="meta">${result.items.length} itens</span>
         <button class="del" onclick="resetUploadState()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -740,14 +797,18 @@ async function fetchCatalog() {
   document.getElementById("select-loading").style.display = "block";
   document.getElementById("select-controls").style.display = "none";
   document.getElementById("btn-compare").disabled = true;
+  setSelectMessage("");
 
   try {
     const res = await fetch("/api/list_inventories");
-    catalogList = await res.json();
+    catalogList = sortCatalogList(await res.json());
     if (res.ok && catalogList.length > 0) {
       populateSelects();
       document.getElementById("select-controls").style.display = "flex";
       document.getElementById("btn-compare").disabled = catalogList.length < 2;
+      if (catalogList.length < 2) {
+        setSelectMessage("Você precisa catalogar pelo menos dois meses para gerar a comparação de oscilação.");
+      }
     } else {
       document.getElementById("select-loading").innerHTML = "Nenhum inventário catalogado ainda.<br><br><button class='btn btn-ghost' onclick='showUpload()'>Catalogar Primeiro Mês</button>";
       return;
@@ -1266,14 +1327,18 @@ fetchCatalog = async function() {
   document.getElementById('select-loading').style.display = 'block';
   document.getElementById('select-controls').style.display = 'none';
   document.getElementById('btn-compare').disabled = true;
+  setSelectMessage('');
 
   try {
     const res = await fetchWithRetry('/api/list_inventories');
-    catalogList = await res.json();
+    catalogList = sortCatalogList(await res.json());
     if (res.ok && catalogList.length > 0) {
       populateSelects();
       document.getElementById('select-controls').style.display = 'flex';
       document.getElementById('btn-compare').disabled = catalogList.length < 2;
+      if (catalogList.length < 2) {
+        setSelectMessage('Você precisa catalogar pelo menos dois meses para gerar a comparação de oscilação.');
+      }
     } else {
       document.getElementById('select-loading').innerHTML = "Nenhum inventário catalogado ainda.<br><br><button class='btn btn-ghost' onclick='showUpload()'>Catalogar Primeiro Mês</button>";
       return;

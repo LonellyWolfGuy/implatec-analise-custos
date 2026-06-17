@@ -2,6 +2,10 @@
   "name": "implatec-analise-custos",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4"
   }
