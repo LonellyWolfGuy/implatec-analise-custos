@@ -458,6 +458,25 @@ function setSelectMessage(message) {
   el.textContent = message || "";
 }
 
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, ch => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  }[ch]));
+}
+
+function csvCell(value) {
+  const text = String(value ?? "");
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function inlineJson(value) {
+  return escapeHtml(JSON.stringify(String(value ?? "")));
+}
+
 function computeDeltas(r) {
   const dq = r.q2 - r.q1, du = r.u2 - r.u1, dp = r.p2 - r.p1;
   const dqp = r.q1 ? ((r.q2 - r.q1) / r.q1) * 100 : null;
@@ -696,7 +715,7 @@ async function addFile(file) {
   
   const item = document.createElement("div");
   item.className = "file-item";
-  item.innerHTML = `<span class="name">${file.name}</span><span class="meta">Processando...</span>`;
+  item.innerHTML = `<span class="name">${escapeHtml(file.name)}</span><span class="meta">Processando...</span>`;
   list.appendChild(item);
   const meta = item.querySelector(".meta");
 
@@ -712,14 +731,14 @@ async function addFile(file) {
         monthInput.value = inferredMonth;
         showToast(`Mês sugerido pelo arquivo: ${inferredMonth.slice(5)}/${inferredMonth.slice(0, 4)}`);
       }
-      item.innerHTML = `<span class="name">${result.name}</span><span class="meta">${result.items.length} itens</span>
+      item.innerHTML = `<span class="name">${escapeHtml(result.name)}</span><span class="meta">${result.items.length} itens</span>
         <button class="del" onclick="resetUploadState()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>`;
     }
   } catch(err) {
     uploadedFile = null;
-    item.innerHTML = `<span class="name">${file.name}</span><span class="meta" style="color:var(--danger)">Erro ao processar</span>`;
+    item.innerHTML = `<span class="name">${escapeHtml(file.name)}</span><span class="meta" style="color:var(--danger)">Erro ao processar</span>`;
     console.error(err);
   }
   checkUploadReady();
@@ -1032,11 +1051,13 @@ function render() {
     return;
   }
 
-  const rows = slice.map(r => `
+  const rows = slice.map(r => {
+    const cat = CAT_LABEL[r.cat] ? r.cat : "PA";
+    return `
     <tr>
-      <td class="code">${r.cod}</td>
-      <td class="desc" title="${r.desc}">${r.desc}</td>
-      <td><span class="pill pill-${r.cat}">${r.cat}</span></td>
+      <td class="code">${escapeHtml(r.cod)}</td>
+      <td class="desc" title="${escapeHtml(r.desc)}">${escapeHtml(r.desc)}</td>
+      <td><span class="pill pill-${cat}">${escapeHtml(cat)}</span></td>
       <td class="r">${fmt(r.q1, 3)}</td>
       <td class="r">${fmt(r.u1)}</td>
       <td class="r">${fmt(r.p1)}</td>
@@ -1049,7 +1070,8 @@ function render() {
       <td class="r"><span class="delta ${deltaClass(r.dqp, true)}">${r.dqp != null ? fmtR(r.dqp, 1) + '%' : '–'}</span></td>
       <td class="r"><span class="delta ${deltaClass(r.dup)}">${r.dup != null ? fmtR(r.dup, 1) + '%' : '–'}</span></td>
       <td class="r"><span class="delta ${deltaClass(r.dpp)}">${r.dpp != null ? fmtR(r.dpp, 1) + '%' : '–'}</span></td>
-    </tr>`).join("");
+    </tr>`;
+  }).join("");
 
   document.getElementById("tbody").innerHTML = rows;
   document.getElementById("pg-info").textContent = `Página ${page + 1} de ${pages}`;
@@ -1061,7 +1083,7 @@ function render() {
 function exportCSV() {
   const h = "Codigo,Descricao,Categoria,Qtd M1,Unit M1,Parc M1,Qtd M2,Unit M2,Parc M2,Delta Qtd,Delta Unit,Delta Parc";
   const rows = filtered.map(r =>
-    [r.cod, `"${r.desc}"`, r.cat, r.q1, r.u1, r.p1, r.q2, r.u2, r.p2, r.dq, r.du, r.dp].join(",")
+    [r.cod, r.desc, r.cat, r.q1, r.u1, r.p1, r.q2, r.u2, r.p2, r.dq, r.du, r.dp].map(csvCell).join(",")
   );
   const blob = new Blob(["\uFEFF" + h + "\n" + rows.join("\n")], { type: "text/csv;charset=utf-8" });
   const a = document.createElement("a");
@@ -1117,8 +1139,8 @@ async function loadManageList() {
     let html = '<div style="display:flex;flex-direction:column;gap:0.5rem;">';
     list.forEach(f => {
       html += `<div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius-md);padding:0.75rem 1rem;">
-        <div><strong>${f.month_year}</strong><br><span style="font-size:0.8rem;color:var(--text-sec)">${f.filename || 'sem arquivo'}</span></div>
-        <button class="btn btn-ghost" style="padding:0.3rem 0.8rem;font-size:0.8rem;background:var(--danger-bg);color:var(--danger);border-color:transparent;" onclick="confirmDelete('${f.id}','${f.month_year}')">Excluir</button>
+        <div><strong>${escapeHtml(f.month_year)}</strong><br><span style="font-size:0.8rem;color:var(--text-sec)">${escapeHtml(f.filename || 'sem arquivo')}</span></div>
+        <button class="btn btn-ghost" style="padding:0.3rem 0.8rem;font-size:0.8rem;background:var(--danger-bg);color:var(--danger);border-color:transparent;" onclick='confirmDelete(${inlineJson(f.id)}, ${inlineJson(f.month_year)})'>Excluir</button>
       </div>`;
     });
     html += '</div>';
@@ -1140,7 +1162,7 @@ function confirmDelete(id, monthYear) {
 
 async function deleteInventory(id) {
   try {
-    const res = await fetch(`/api/delete_inventory?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    const res = await fetchWithRetry(`/api/delete_inventory?id=${encodeURIComponent(id)}`, { method: "DELETE" });
     if (res.ok) {
       showToast("Inventário removido!");
       loadManageList();
@@ -1164,7 +1186,7 @@ function confirmClearAll() {
 
 async function clearAllInventories() {
   try {
-    const res = await fetch("/api/delete_inventory?all=true", { method: "DELETE" });
+    const res = await fetchWithRetry("/api/delete_inventory?all=true", { method: "DELETE" });
     if (res.ok) {
       showToast("Todos os dados foram removidos!");
       loadManageList();
