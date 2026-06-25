@@ -4,8 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Implatec — Análise de Custos</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.7.570/pdf.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.5.2/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
+  onerror="this.onerror=null;document.write('<script src=\'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js\'><\/script>')"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.5.2/papaparse.min.js"
+  onerror="this.onerror=null;document.write('<script src=\'https://unpkg.com/papaparse@5.5.2/papaparse.min.js\'><\/script>')"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -149,6 +151,7 @@ td.desc { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow
 .pill-EM { background: rgba(139,148,158,0.15); color: var(--text-sec); border: 1px solid rgba(139,148,158,0.2); }
 .pill-RE { background: var(--danger-bg); color: var(--danger); border: 1px solid rgba(248,81,73,0.2); }
 .pill-AG { background: rgba(188,140,255,0.15); color: #bc8cff; border: 1px solid rgba(188,140,255,0.2); }
+.pill-\?\? { background: rgba(148,163,184,0.15); color: var(--text-sec); border: 1px solid rgba(148,163,184,0.2); }
 .delta { font-size: 0.75rem; font-weight: 600; }
 .pg { display: flex; align-items: center; gap: 1rem; margin-top: 1rem; font-size: 0.85rem;
   color: var(--text-sec); justify-content: space-between; }
@@ -394,7 +397,7 @@ td.desc { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow
 
 <script>
 // ==================== STATE ====================
-const CAT_LABEL = {PA:"Produto Acabado",CO:"Composto",MP:"Matéria Prima",EM:"Embalagem",AG:"Agregado",RE:"Refugo"};
+const CAT_LABEL = {PA:"Produto Acabado",CO:"Composto",MP:"Matéria Prima",EM:"Embalagem",AG:"Agregado",RE:"Refugo","??":"Não Classificado"};
 const CAT_PREFIX = {PA:"01",CO:"03",MP:"04",AG:"05",EM:"06",RE:"11"};
 const REV_PREFIX = Object.fromEntries(Object.entries(CAT_PREFIX).map(([k,v])=>({prefix:v,cat:k})));
 
@@ -524,7 +527,7 @@ function showSelect() {
 function showDashboard() { showScreen("screen-dashboard"); }
 
 // ==================== PDF/CSV PARSING ====================
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.7.570/pdf.worker.min.js';
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 function parseBrNumber(str) {
   if (!str) return 0;
@@ -535,7 +538,7 @@ function guessCategory(cod) {
   for (const [cat, prefix] of Object.entries(CAT_PREFIX)) {
     if (cod.startsWith(prefix)) return cat;
   }
-  return 'PA';
+  return '??';
 }
 
 function tryParseLine(line) {
@@ -774,7 +777,8 @@ async function saveInventory() {
           () => {
             pendingOverwrite = true;
             saveInventory();
-          }
+          },
+          false
         );
         return;
       }
@@ -1052,7 +1056,7 @@ function render() {
   }
 
   const rows = slice.map(r => {
-    const cat = CAT_LABEL[r.cat] ? r.cat : "PA";
+    const cat = CAT_LABEL[r.cat] ? r.cat : "??";
     return `
     <tr>
       <td class="code">${escapeHtml(r.cod)}</td>
@@ -1105,15 +1109,15 @@ function closeModal() {
   manageCallback = null;
 }
 
-function showConfirm(title, msg, btnText, callback) {
+function showConfirm(title, msg, btnText, callback, isDestructive = true) {
   document.getElementById("modal-title").textContent = title;
   document.getElementById("modal-msg").textContent = msg;
   const btn = document.getElementById("modal-confirm-btn");
   btn.textContent = btnText;
-  const cb = callback;
+  btn.style.background = isDestructive ? 'var(--danger)' : 'var(--accent)';
   btn.onclick = function() {
     closeModal();
-    if (cb) cb();
+    if (callback) callback();
   };
   document.getElementById("modal-confirm").style.display = "flex";
 }
@@ -1223,16 +1227,28 @@ async function copyLink() {
   }
 }
 
-function showToast(msg) {
-  const t = document.createElement("div");
-  t.className = "toast"; t.textContent = msg;
+function showToast(msg, duration = 3000) {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.innerHTML = `<span style="flex:1">${escapeHtml(msg)}</span><button onclick="this.parentElement.remove()" style="background:none;border:none;color:inherit;cursor:pointer;font-size:1.1rem;padding:0 0 0 8px;line-height:1;opacity:0.7">&times;</button>`;
+  t.style.display = 'flex';
+  t.style.alignItems = 'center';
+  t.style.gap = '8px';
   document.body.appendChild(t);
-  setTimeout(() => t.remove(), 2500);
+
+  if (duration > 0) {
+    setTimeout(() => {
+      if (t.parentElement) t.remove();
+    }, duration);
+  }
 }
 
-// ==================== SUPABASE KEEP-ALIVE ====================
-// Faz um ping leve no banco a cada 4 minutos para evitar que o projeto
-// no Supabase (plano gratuito) pause por inatividade.
+// ==================== KEEP-ALIVE ====================
+// Faz um ping leve no banco a cada 4 minutos para evitar que o
+// servidor pause o pool de conexão por inatividade.
 (function startKeepAlive() {
   const INTERVAL_MS = 4 * 60 * 1000; // 4 minutos
 
@@ -1251,9 +1267,10 @@ function showToast(msg) {
   setInterval(ping, INTERVAL_MS);
 })();
 
-// ==================== FETCH COM RETRY (wake-up do Supabase) ====================
-// Supabase pode levar alguns segundos para acordar após ficar inativo.
-// Esta função envolve o fetch com até 3 tentativas e backoff exponencial.
+// ==================== FETCH COM RETRY (wake-up do banco) ====================
+// O banco SQL Server pode levar alguns segundos para responder após
+// ficar inativo. Esta função envolve o fetch com até 3 tentativas
+// e backoff exponencial.
 async function fetchWithRetry(url, options = {}, maxRetries = 3) {
   const RETRY_DELAYS = [2000, 5000, 10000]; // ms entre tentativas
 
@@ -1340,7 +1357,8 @@ saveInventory = async function() {
         () => {
           pendingOverwrite = true;
           saveInventory();
-        }
+        },
+        false
       );
       return;
     }
