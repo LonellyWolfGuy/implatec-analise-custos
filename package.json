@@ -7,6 +7,6 @@
     "dev": "node server.js"
   },
   "dependencies": {
-    "mssql": "^11.0.1"
+    "@supabase/supabase-js": "^2.49.4"
   }
 }

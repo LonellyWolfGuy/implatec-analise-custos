@@ -1,4 +1,9 @@
-import { getDbPool, sql } from './_db.js';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.VITE_SUPABASE_URL,
+  process.env.VITE_SUPABASE_ANON_KEY
+);
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -6,10 +11,16 @@ export default async function handler(req, res) {
   }
 
   try {
-    const pool = await getDbPool();
-    // Light query — only 1 row to ping the database
-    await pool.request()
-      .query('SELECT TOP 1 id FROM monthly_inventories');
+    // Consulta leve — apenas 1 registro, sem trazer dados pesados
+    const { error } = await supabase
+      .from('monthly_inventories')
+      .select('id')
+      .limit(1);
+
+    if (error) {
+      console.error('Keepalive ping error:', error);
+      return res.status(500).json({ ok: false, error: error.message });
+    }
 
     return res.json({ ok: true, ts: new Date().toISOString() });
   } catch (err) {

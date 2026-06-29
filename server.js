@@ -7,11 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Load .env file
-function loadEnv() {
-  if (!fs.existsSync('.env')) {
-    console.warn('Warning: .env file not found. Database connection may fail.');
-    return;
-  }
+if (fs.existsSync('.env')) {
   const envContent = fs.readFileSync('.env', 'utf8');
   envContent.split('\n').forEach(line => {
     const trimmed = line.trim();
@@ -26,41 +22,13 @@ function loadEnv() {
     }
   });
   console.log('Environment variables loaded from .env');
-}
-
-loadEnv();
-
-const REQUIRED_ENV = ['SQL_USER', 'SQL_PASSWORD', 'SQL_SERVER', 'SQL_DATABASE'];
-const missing = REQUIRED_ENV.filter(k => !process.env[k]);
-if (missing.length > 0) {
-  console.error(`Missing required env vars: ${missing.join(', ')}`);
-  console.error('The application may not function correctly without database credentials.');
+} else {
+  console.warn('Warning: .env file not found. Database connection may fail.');
 }
 
 const PORT = 3000;
-const isDev = process.env.NODE_ENV !== 'production';
-
-function setCORS(res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-}
-
-function sendJSON(res, status, data) {
-  res.statusCode = status;
-  res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  res.end(JSON.stringify(data));
-}
 
 const server = http.createServer((req, res) => {
-  setCORS(res);
-
-  if (req.method === 'OPTIONS') {
-    res.writeHead(204);
-    res.end();
-    return;
-  }
-
   const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = parsedUrl.pathname;
 
@@ -68,7 +36,8 @@ const server = http.createServer((req, res) => {
   if (pathname === '/' || pathname === '/index.html') {
     fs.readFile(path.join(__dirname, 'index.html'), 'utf8', (err, content) => {
       if (err) {
-        sendJSON(res, 500, { error: 'Erro ao carregar index.html' });
+        res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('Erro ao carregar index.html');
       } else {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(content);
@@ -84,64 +53,76 @@ const server = http.createServer((req, res) => {
     const apiPath = path.join(__dirname, 'api', apiFile);
 
     if (!fs.existsSync(apiPath)) {
-      sendJSON(res, 404, { error: 'Endpoint não encontrado' });
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Endpoint não encontrado' }));
       return;
     }
 
     let bodyBuffer = [];
-    req.on('data', chunk => bodyBuffer.push(chunk));
+    req.on('data', chunk => {
+      bodyBuffer.push(chunk);
+    });
 
     req.on('end', async () => {
       const bodyStr = Buffer.concat(bodyBuffer).toString();
 
+      // Parse query parameters
       const query = {};
-      parsedUrl.searchParams.forEach((val, key) => { query[key] = val; });
+      parsedUrl.searchParams.forEach((val, key) => {
+        query[key] = val;
+      });
 
+      // Parse body if it is JSON
       let body = {};
       if (bodyStr) {
-        try { body = JSON.parse(bodyStr); } catch {}
+        try {
+          body = JSON.parse(bodyStr);
+        } catch (e) {
+          // not JSON or invalid JSON
+        }
       }
 
+      // Populate Vercel-like request helpers
       req.query = query;
       req.body = body;
 
+      // Populate Vercel-like response helpers
       res.status = function(code) {
         res.statusCode = code;
         return res;
       };
 
       res.json = function(data) {
-        sendJSON(res, res.statusCode, data);
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.end(JSON.stringify(data));
         return res;
       };
 
       try {
-        const moduleUrl = isDev
-          ? `file://${apiPath}?t=${Date.now()}`
-          : `file://${apiPath}`;
+        // Dynamically import the API module (which is native ESM)
+        const moduleUrl = `file://${apiPath}?t=${Date.now()}`; // add timestamp to bypass ESM import cache for local dev
         const apiModule = await import(moduleUrl);
         const handler = apiModule.default;
 
         if (typeof handler === 'function') {
           await handler(req, res);
         } else {
-          sendJSON(res, 500, { error: 'Handler padrão não exportado no arquivo da API' });
+          res.status(500).json({ error: 'Handler padrão não exportado no arquivo da API' });
         }
       } catch (err) {
         console.error(`Erro no endpoint ${pathname}:`, err);
-        sendJSON(res, 500, { error: err.message || 'Erro interno do servidor' });
+        res.status(500).json({ error: err.message || 'Erro interno do servidor' });
       }
     });
     return;
   }
 
-  // 404 for other assets
+  // 404 for other assets (since it is a SPA and only index.html/APIs are used)
   res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
   res.end('Página não encontrada');
 });
 
 server.listen(PORT, () => {
   console.log(`Servidor rodando localmente em http://localhost:${PORT}`);
-  console.log(`Ambiente: ${isDev ? 'desenvolvimento' : 'produção'}`);
   console.log(`Pressione Ctrl+C para encerrar`);
 });

@@ -1,4 +1,9 @@
-import { getDbPool, sql } from './_db.js';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.VITE_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY
+);
 
 export default async function handler(req, res) {
   if (req.method !== 'DELETE') {
@@ -7,41 +12,44 @@ export default async function handler(req, res) {
 
   const { id, all } = req.query;
 
-  try {
-    const pool = await getDbPool();
+  // Clear all inventories
+  if (all === 'true') {
+    const { data, error } = await supabase
+      .from('monthly_inventories')
+      .delete()
+      .gte('created_at', '1970-01-01')
+      .select('id');
 
-    // Clear all inventories
-    if (all === 'true') {
-      const result = await pool.request()
-        .query('DELETE FROM monthly_inventories OUTPUT deleted.id');
-
-      const deletedCount = result.recordset?.length || 0;
-      return res.json({
-        ok: true,
-        deleted: deletedCount,
-        message: `${deletedCount} inventário(s) removido(s).`
-      });
+    if (error) {
+      return res.status(500).json({ error: error.message });
     }
-
-    if (!id) {
-      return res.status(400).json({ error: 'id query parameter is required' });
-    }
-
-    const result = await pool.request()
-      .input('id', sql.UniqueIdentifier, id)
-      .query('DELETE FROM monthly_inventories OUTPUT deleted.id WHERE id = @id');
-
-    const deletedCount = result.recordset?.length || 0;
-
-    if (deletedCount === 0) {
-      return res.status(404).json({
-        error: 'Nenhum inventário foi removido. Verifique se o ID informado existe no banco.'
-      });
-    }
-
-    res.json({ ok: true, deleted: deletedCount });
-  } catch (err) {
-    console.error('SQL Server delete error:', err);
-    res.status(500).json({ error: err.message || 'Erro interno do servidor' });
+    return res.json({
+      ok: true,
+      deleted: data?.length || 0,
+      message: `${data?.length || 0} inventário(s) removido(s).`
+    });
   }
+
+  if (!id) {
+    return res.status(400).json({ error: 'id query parameter is required' });
+  }
+
+  const { data, error } = await supabase
+    .from('monthly_inventories')
+    .delete()
+    .eq('id', id)
+    .select('id');
+
+  if (error) {
+    console.error('Supabase delete error:', error);
+    return res.status(500).json({ error: error.message });
+  }
+
+  if (!data?.length) {
+    return res.status(404).json({
+      error: 'Nenhum inventário foi removido. Verifique as policies de DELETE no Supabase ou configure SUPABASE_SERVICE_ROLE_KEY.'
+    });
+  }
+
+  res.json({ ok: true, deleted: data.length });
 }

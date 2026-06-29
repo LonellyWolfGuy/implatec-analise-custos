@@ -1190,7 +1190,7 @@ async function loadManageList() {
   document.getElementById("manage-actions").style.display = "none";
 
   try {
-    const res = await fetchWithRetry("/api/list_inventories");
+    const res = await fetchWithRetry("/api/list_inventories?include_counts=true");
     const list = await res.json();
     loading.style.display = "none";
 

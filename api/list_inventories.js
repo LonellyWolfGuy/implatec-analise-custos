@@ -1,4 +1,9 @@
-import { getDbPool, sql } from './_db.js';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.VITE_SUPABASE_URL,
+  process.env.VITE_SUPABASE_ANON_KEY
+);
 
 function monthYearSortKey(monthYear) {
   const match = String(monthYear || '').match(/^(\d{1,2})\/(\d{4})$/);
@@ -10,23 +15,26 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  try {
-    const pool = await getDbPool();
-    const result = await pool.request()
-      .query(`
-        SELECT id, month_year, filename, created_at,
-          CASE WHEN ISJSON(data) = 1 THEN (SELECT COUNT(*) FROM OPENJSON(data)) ELSE 0 END AS item_count
-        FROM monthly_inventories
-      `);
+  const includeCounts = req.query?.include_counts === 'true';
+  const fields = includeCounts
+    ? 'id, month_year, filename, created_at, data'
+    : 'id, month_year, filename, created_at';
 
-    const data = result.recordset || [];
+  const { data, error } = await supabase
+    .from('monthly_inventories')
+    .select(fields)
+    .order('month_year', { ascending: false });
 
-    // Sort in memory by month_year values
-    data.sort((a, b) => monthYearSortKey(b.month_year) - monthYearSortKey(a.month_year));
-
-    res.json(data);
-  } catch (err) {
-    console.error('SQL Server select error:', err);
-    res.status(500).json({ error: err.message || 'Erro interno do servidor' });
+  if (error) {
+    console.error('Supabase select error:', error);
+    return res.status(500).json({ error: error.message });
   }
+
+  const records = (data || []).map(record => {
+    if (!includeCounts) return record;
+    const { data: items, ...metadata } = record;
+    return { ...metadata, item_count: Array.isArray(items) ? items.length : 0 };
+  });
+
+  res.json(records.sort((a, b) => monthYearSortKey(b.month_year) - monthYearSortKey(a.month_year)));
 }

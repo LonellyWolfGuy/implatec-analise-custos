@@ -1,4 +1,9 @@
-import { getDbPool, sql } from './_db.js';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.VITE_SUPABASE_URL,
+  process.env.VITE_SUPABASE_ANON_KEY
+);
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -15,27 +20,16 @@ export default async function handler(req, res) {
     return res.status(413).json({ error: 'data array exceeds maximum of 5000 items' });
   }
 
-  try {
-    const pool = await getDbPool();
-    const result = await pool.request()
-      .input('name', sql.NVarChar(255), name || null)
-      .input('mes1_name', sql.NVarChar(255), mes1_name || null)
-      .input('mes2_name', sql.NVarChar(255), mes2_name || null)
-      .input('data', sql.NVarChar(sql.MAX), JSON.stringify(data))
-      .query(`
-        INSERT INTO analyses (name, mes1_name, mes2_name, data)
-        OUTPUT inserted.id
-        VALUES (@name, @mes1_name, @mes2_name, @data)
-      `);
+  const { data: record, error } = await supabase
+    .from('analyses')
+    .insert({ name: name || null, mes1_name: mes1_name || null, mes2_name: mes2_name || null, data })
+    .select('id')
+    .single();
 
-    if (result.recordset.length === 0) {
-      return res.status(500).json({ error: 'Erro ao salvar a análise' });
-    }
-
-    const record = result.recordset[0];
-    res.json({ id: record.id });
-  } catch (err) {
-    console.error('SQL Server insert error:', err);
-    res.status(500).json({ error: err.message || 'Erro interno do servidor' });
+  if (error) {
+    console.error('Supabase insert error:', error);
+    return res.status(500).json({ error: error.message });
   }
+
+  res.json({ id: record.id });
 }
