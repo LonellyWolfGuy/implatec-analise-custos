@@ -8,6 +8,7 @@
   onerror="this.onerror=null;document.write('<script src=\'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js\'><\/script>')"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.5.2/papaparse.min.js"
   onerror="this.onerror=null;document.write('<script src=\'https://unpkg.com/papaparse@5.5.2/papaparse.min.js\'><\/script>')"></script>
+<script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -35,8 +36,7 @@
 body {
   font-family: var(--font-sans); background: var(--bg); color: var(--text);
   min-height: 100vh; line-height: 1.5;
-  background-image: radial-gradient(ellipse at top left, rgba(59,130,246,0.08), transparent 40%),
-                    radial-gradient(ellipse at bottom right, rgba(16,185,129,0.05), transparent 40%);
+
 }
 .wrap { max-width: 1440px; margin: 0 auto; padding: 2rem; }
 .screen { display: none; }
@@ -52,8 +52,62 @@ body {
   letter-spacing: 0.05em; text-transform: uppercase; background: var(--info-bg); color: var(--info);
   border: 1px solid rgba(88,166,255,0.3); }
 
-/* Menu */
-.menu-card:hover { background: var(--bg-hover) !important; border-color: var(--accent) !important; }
+/* Home */
+.home-shell { max-width:1180px; margin:0 auto; padding:1rem 0 3rem; }
+.home-header { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1rem 0 1.5rem; border-bottom:1px solid var(--border); }
+.home-brand { display:flex; align-items:center; gap:.8rem; }
+.home-mark { width:40px; height:40px; display:grid; place-items:center; background:var(--text); color:var(--bg); border-radius:8px; font-size:.78rem; font-weight:700; }
+.home-brand strong { display:block; font-size:1rem; }
+.home-brand span { display:block; color:var(--text-sec); font-size:.76rem; }
+.home-header-actions { display:flex; align-items:center; gap:.5rem; }
+.icon-btn { width:38px; height:38px; display:grid; place-items:center; border:1px solid var(--border); border-radius:8px; background:var(--bg-panel); color:var(--text); cursor:pointer; }
+.icon-btn:hover { background:var(--btn-hover); border-color:var(--text-muted); }
+.icon-btn svg { width:18px; height:18px; }
+.home-intro { padding:2.25rem 0 1.4rem; display:flex; align-items:flex-end; justify-content:space-between; gap:2rem; }
+.home-intro h1 { font-size:2rem; line-height:1.15; font-weight:650; margin-bottom:.45rem; }
+.home-intro p { color:var(--text-sec); font-size:.92rem; }
+.home-status { display:flex; align-items:center; gap:.45rem; color:var(--text-sec); font-size:.78rem; white-space:nowrap; }
+.status-dot { width:8px; height:8px; border-radius:50%; background:var(--success); box-shadow:0 0 0 3px var(--success-bg); }
+.home-stats { display:grid; grid-template-columns:repeat(3,1fr); border:1px solid var(--border); border-radius:8px; background:var(--bg-panel); margin-bottom:1.25rem; }
+.home-stat { padding:1rem 1.2rem; border-right:1px solid var(--border); }
+.home-stat:last-child { border-right:0; }
+.home-stat span { display:block; color:var(--text-sec); font-size:.74rem; margin-bottom:.25rem; }
+.home-stat strong { font-size:1.2rem; font-weight:650; }
+.home-grid { display:grid; grid-template-columns:minmax(0,1.45fr) minmax(280px,.75fr); gap:1.25rem; align-items:start; }
+.home-section { border-top:1px solid var(--border); padding-top:1rem; }
+.home-section-title { display:flex; align-items:center; justify-content:space-between; margin-bottom:.7rem; }
+.home-section-title h2 { font-size:.82rem; color:var(--text-sec); font-weight:600; text-transform:uppercase; }
+.home-actions { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
+.home-action { min-height:118px; text-align:left; border:1px solid var(--border); border-radius:8px; background:var(--bg-panel); color:var(--text); padding:1rem; cursor:pointer; transition:border-color .18s,background .18s,transform .18s; }
+.home-action:hover { border-color:var(--accent); background:var(--bg-card); transform:translateY(-2px); }
+.home-action.primary { grid-column:1 / -1; min-height:132px; background:var(--text); color:var(--bg); display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:1rem; }
+.home-action-icon { width:38px; height:38px; display:grid; place-items:center; border:1px solid currentColor; border-radius:8px; opacity:.9; }
+.home-action-icon svg { width:19px; height:19px; }
+.home-action strong { display:block; font-size:1rem; margin-bottom:.2rem; }
+.home-action span { display:block; font-size:.78rem; opacity:.68; }
+.home-action .action-arrow { width:18px; height:18px; }
+.recent-list { border:1px solid var(--border); border-radius:8px; background:var(--bg-panel); overflow:hidden; }
+.recent-item { display:grid; grid-template-columns:42px minmax(0,1fr) auto; align-items:center; gap:.75rem; padding:.8rem; border-bottom:1px solid var(--border); }
+.recent-item:last-child { border-bottom:0; }
+.recent-month { width:42px; height:42px; display:grid; place-items:center; background:var(--table-hdr); border-radius:6px; font-size:.7rem; font-weight:700; text-align:center; line-height:1.1; }
+.recent-copy { min-width:0; }
+.recent-copy strong,.recent-copy span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.recent-copy strong { font-size:.84rem; }
+.recent-copy span { color:var(--text-sec); font-size:.72rem; }
+.recent-count { color:var(--text-sec); font-size:.72rem; white-space:nowrap; }
+.home-link { border:0; background:none; color:var(--accent); cursor:pointer; font:inherit; font-size:.78rem; font-weight:600; }
+.home-skeleton { padding:1rem; color:var(--text-sec); font-size:.8rem; }
+@media (max-width:760px) {
+  .wrap { padding:1rem; }
+  .home-intro { align-items:flex-start; flex-direction:column; gap:.75rem; padding:1.5rem 0 1rem; }
+  .home-intro h1 { font-size:1.55rem; }
+  .home-grid { grid-template-columns:1fr; }
+  .home-stats { grid-template-columns:1fr; }
+  .home-stat { border-right:0; border-bottom:1px solid var(--border); }
+  .home-stat:last-child { border-bottom:0; }
+  .home-actions { grid-template-columns:1fr; }
+  .home-action.primary { grid-column:auto; }
+}
 
 /* Upload screen */
 .upload-box { max-width: 600px; margin: 4rem auto; }
@@ -103,7 +157,7 @@ body {
   border-radius: var(--radius-md); padding: 1.25rem; box-shadow: var(--shadow-sm); }
 .metric label { font-size: 0.75rem; color: var(--text-sec); text-transform: uppercase;
   letter-spacing: 0.05em; display: block; margin-bottom: 0.5rem; font-weight: 600; }
-.metric .val { font-size: 1.4rem; font-weight: 600; letter-spacing: -0.02em; }
+.metric .val { font-size: 1.4rem; font-weight: 600; letter-spacing: 0; }
 .metric .sub { font-size: 0.75rem; margin-top: 0.5rem; font-weight: 500; }
 .up { color: var(--danger); } .down { color: var(--success); } .zero { color: var(--text-muted); }
 
@@ -209,27 +263,50 @@ td.desc { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow
 <div class="wrap">
   <!-- ==================== SCREEN: MENU ==================== -->
   <div id="screen-menu" class="screen active">
-    <div class="upload-box" style="margin-top: 6rem;">
-      <h1>Análise de Custos de Inventário</h1>
-      <p class="sub">Sistema de catalogação e comparativo mensal.</p>
+    <main class="home-shell">
+      <header class="home-header">
+        <div class="home-brand">
+          <div class="home-mark">IMP</div>
+          <div><strong>Implatec</strong><span>Controle de custos</span></div>
+        </div>
+        <div class="home-header-actions">
+          <button class="icon-btn" title="Alternar tema" aria-label="Alternar tema" onclick="toggleTheme()"><i data-lucide="sun-moon"></i></button>
+          <button class="icon-btn" title="Gerenciar inventários" aria-label="Gerenciar inventários" onclick="showManage()"><i data-lucide="settings-2"></i></button>
+        </div>
+      </header>
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 3rem;">
-        <div class="menu-card" onclick="showUpload()" style="padding: 2rem; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; transition: all 0.2s;">
-          <h3 style="margin-bottom: 0.5rem;">Catalogar Novo Mês</h3>
-          <p style="font-size: 0.85rem; color: var(--text-sec)">Importe um arquivo PDF ou CSV para salvar no histórico.</p>
-        </div>
-        <div class="menu-card" onclick="showSelect()" style="padding: 2rem; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; transition: all 0.2s;">
-          <h3 style="margin-bottom: 0.5rem;">Comparar Meses</h3>
-          <p style="font-size: 0.85rem; color: var(--text-sec)">Selecione dois meses já catalogados para ver oscilações.</p>
-        </div>
-        <div class="menu-card" onclick="showManage()" style="padding: 2rem; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; transition: all 0.2s;">
-          <h3 style="margin-bottom: 0.5rem;">Gerenciar Dados</h3>
-          <p style="font-size: 0.85rem; color: var(--text-sec)">Visualizar, substituir ou remover inventários catalogados.</p>
-        </div>
+      <section class="home-intro">
+        <div><h1>Análise de custos de inventário</h1><p>Acompanhe referências mensais e identifique oscilações relevantes.</p></div>
+        <div class="home-status"><span class="status-dot"></span><span id="home-status-text">Conectando ao catálogo</span></div>
+      </section>
+
+      <section class="home-stats" aria-label="Resumo do catálogo">
+        <div class="home-stat"><span>Inventários catalogados</span><strong id="home-inventory-count">–</strong></div>
+        <div class="home-stat"><span>Itens no período mais recente</span><strong id="home-item-count">–</strong></div>
+        <div class="home-stat"><span>Última referência</span><strong id="home-latest-month">–</strong></div>
+      </section>
+
+      <div class="home-grid">
+        <section class="home-section">
+          <div class="home-section-title"><h2>Ações</h2></div>
+          <div class="home-actions">
+            <button class="home-action primary" onclick="showSelect()">
+              <span class="home-action-icon"><i data-lucide="chart-line"></i></span>
+              <span><strong>Comparar períodos</strong><span>Analise oscilações entre dois inventários</span></span>
+              <i class="action-arrow" data-lucide="arrow-right"></i>
+            </button>
+            <button class="home-action" onclick="showUpload()"><span class="home-action-icon"><i data-lucide="file-up"></i></span><strong>Catalogar mês</strong><span>Importar PDF ou CSV</span></button>
+            <button class="home-action" onclick="showManage()"><span class="home-action-icon"><i data-lucide="database"></i></span><strong>Gerenciar dados</strong><span>Backup, substituição e exclusão</span></button>
+          </div>
+        </section>
+
+        <section class="home-section">
+          <div class="home-section-title"><h2>Inventários recentes</h2><button class="home-link" onclick="showManage()">Ver todos</button></div>
+          <div id="home-recent-list" class="recent-list"><div class="home-skeleton">Carregando catálogo...</div></div>
+        </section>
       </div>
-    </div>
+    </main>
   </div>
-
   <!-- ==================== SCREEN: UPLOAD ==================== -->
   <div id="screen-upload" class="screen">
     <div class="upload-box">
@@ -557,6 +634,7 @@ function showScreen(id) {
 function showMenu() {
   showScreen("screen-menu");
   resetUploadState();
+  loadHomeDashboard();
 }
 function showUpload() {
   showScreen("screen-upload");
@@ -574,6 +652,39 @@ function showSelect() {
   fetchCatalog(); 
 }
 function showDashboard() { showScreen("screen-dashboard"); }
+
+let homeLoadedAt = 0;
+async function loadHomeDashboard(force = false) {
+  if (!force && Date.now() - homeLoadedAt < 30000) return;
+  const status = document.getElementById("home-status-text");
+  const recent = document.getElementById("home-recent-list");
+  if (!status || !recent) return;
+  status.textContent = "Atualizando catálogo";
+
+  try {
+    const res = await fetchWithRetry("/api/list_inventories?include_counts=true");
+    if (!res.ok) throw new Error("Catálogo indisponível");
+    const list = sortCatalogList(await res.json());
+    const latest = list[0];
+    document.getElementById("home-inventory-count").textContent = list.length;
+    document.getElementById("home-item-count").textContent = latest ? Number(latest.item_count || 0).toLocaleString("pt-BR") : "0";
+    document.getElementById("home-latest-month").textContent = latest?.month_year || "Nenhuma";
+    status.textContent = "Catálogo atualizado";
+
+    recent.innerHTML = list.length ? list.slice(0, 4).map(item => {
+      const [month, year] = String(item.month_year || "–/–").split("/");
+      return `<div class="recent-item">
+        <div class="recent-month">${escapeHtml(month)}<br>${escapeHtml(year)}</div>
+        <div class="recent-copy"><strong>${escapeHtml(item.month_year)}</strong><span title="${escapeHtml(item.filename || '')}">${escapeHtml(item.filename || "Sem arquivo")}</span></div>
+        <span class="recent-count">${Number(item.item_count || 0).toLocaleString("pt-BR")} itens</span>
+      </div>`;
+    }).join("") : '<div class="home-skeleton">Nenhum inventário catalogado.</div>';
+    homeLoadedAt = Date.now();
+  } catch (err) {
+    status.textContent = "Falha ao acessar catálogo";
+    recent.innerHTML = `<div class="home-skeleton">${escapeHtml(err.message)}</div>`;
+  }
+}
 
 // ==================== PDF/CSV PARSING ====================
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -1572,6 +1683,8 @@ async function fetchWithRetry(url, options = {}, maxRetries = 3) {
 
 // ==================== INIT ====================
 (function() {
+  if (window.lucide) window.lucide.createIcons();
+  loadHomeDashboard(true);
   const p = new URLSearchParams(window.location.search);
   // Compatibilidade com a rota antiga (opcional), mas vamos focar na nova `m1` e `m2`
   if (p.has('m1') && p.has('m2')) {
