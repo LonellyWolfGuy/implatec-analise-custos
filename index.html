@@ -179,6 +179,15 @@ td.desc { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow
   background: var(--text); color: var(--bg); padding: 0.75rem 1.5rem; border-radius: var(--radius-full);
   font-size: 0.85rem; font-weight: 500; z-index: 1001; animation: fadeIn .3s ease-out; }
 .hidden-analysis { max-width: 500px; margin: 6rem auto; text-align: center; }
+.month-warning { display:none; margin-top:0.6rem; padding:0.65rem 0.75rem; border:1px solid #d97706; background:rgba(217,119,6,.08); color:#b45309; border-radius:var(--radius-sm); font-size:.82rem; }
+.insights { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.25rem; }
+.insight-panel { border:1px solid var(--border); background:var(--bg-panel); border-radius:var(--radius-md); overflow:hidden; }
+.insight-panel h3 { font-size:.88rem; padding:.75rem 1rem; border-bottom:1px solid var(--border); }
+.insight-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.75rem; padding:.65rem 1rem; border-bottom:1px solid var(--border); font-size:.82rem; }
+.insight-row:last-child { border-bottom:0; }
+.insight-row strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.manage-toolbar { display:flex; flex-wrap:wrap; gap:.65rem; margin-bottom:1rem; }
+@media (max-width:720px) { .insights { grid-template-columns:1fr; } }
 .spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid var(--border);
   border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; margin-bottom: 0.5rem; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -220,6 +229,7 @@ td.desc { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow
       <div style="margin-bottom: 1.5rem; text-align: left;">
         <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem;">Mês de Referência:</label>
         <input type="month" id="month-input" onchange="checkUploadReady()" style="width: 100%; padding: 0.6rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--input-bg); color: var(--text); font-family: var(--font-sans);">
+        <div id="month-warning" class="month-warning"></div>
       </div>
 
       <div id="file-list" class="file-list"></div>
@@ -290,6 +300,8 @@ td.desc { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow
 
     <div class="metrics" id="metrics"></div>
 
+    <div class="insights" id="oscillation-insights"></div>
+
     <div class="summary-section">
       <h3><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Resumo Consolidado por Categoria</h3>
       <div class="tbl-wrap">
@@ -306,6 +318,10 @@ td.desc { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow
       <select id="filt-cat" onchange="applyFilter()"><option value="">Todas</option><option value="PA">PA</option><option value="CO">CO</option><option value="MP">MP</option><option value="EM">EM</option><option value="AG">AG</option><option value="RE">RE</option></select>
       <span class="label">Variação:</span>
       <select id="filt-var" onchange="applyFilter()"><option value="">Todas</option><option value="alta">Custo ↑</option><option value="baixa">Custo ↓</option><option value="zero">Custo =</option></select>
+      <span class="label">Situação:</span>
+      <select id="filt-status" onchange="applyFilter()"><option value="">Todas</option><option value="novo">Novos</option><option value="removido">Removidos</option><option value="existente">Existentes</option></select>
+      <span class="label">Variação mínima:</span>
+      <input type="number" id="filt-min" min="0" step="0.1" placeholder="0%" oninput="applyFilter()" style="width:90px">
       <input type="text" id="filt-search" placeholder="Buscar..." oninput="applyFilter()" style="width:160px">
       <button onclick="resetFilter()">Limpar</button>
       <button onclick="exportCSV()">Exportar CSV</button>
@@ -362,6 +378,12 @@ td.desc { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow
 
       <div id="manage-list" style="margin-bottom: 2rem;"></div>
 
+      <div class="manage-toolbar">
+        <button class="btn btn-ghost" onclick="exportBackup()">Exportar Backup</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('backup-input').click()">Restaurar Backup</button>
+        <input id="backup-input" type="file" accept=".json,application/json" style="display:none" onchange="selectBackupFile(event)">
+      </div>
+
       <div id="manage-actions" style="display:none; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border);">
         <button class="btn btn-ghost" style="flex:1" onclick="showMenu()">← Voltar</button>
         <button id="btn-clear-all" class="btn btn-primary" style="background:var(--danger);flex:2" onclick="confirmClearAll()">Excluir Todos os Dados</button>
@@ -402,6 +424,7 @@ const CAT_PREFIX = {PA:"01",CO:"03",MP:"04",AG:"05",EM:"06",RE:"11"};
 const REV_PREFIX = Object.fromEntries(Object.entries(CAT_PREFIX).map(([k,v])=>({prefix:v,cat:k})));
 
 let uploadedFile = null; // Apenas 1 arquivo para catalogar
+let inferredUploadMonth = "";
 let catalogList = []; // Lista de inventários vindos da API
 let currentM1_id = null;
 let currentM2_id = null;
@@ -676,6 +699,7 @@ async function processFile(file, onProgress) {
 // ==================== UPLOAD UI ====================
 function resetUploadState() {
   uploadedFile = null;
+  inferredUploadMonth = "";
   pendingOverwrite = null;
   document.getElementById("file-input").value = '';
   document.getElementById("file-list").innerHTML = '';
@@ -729,6 +753,7 @@ async function addFile(file) {
     if (result) {
       uploadedFile = result;
       const inferredMonth = inferMonthInputFromFilename(result.name);
+      inferredUploadMonth = inferredMonth;
       const monthInput = document.getElementById("month-input");
       if (inferredMonth && monthInput.value !== inferredMonth) {
         monthInput.value = inferredMonth;
@@ -748,8 +773,15 @@ async function addFile(file) {
 }
 
 function checkUploadReady() {
-  const hasMonth = !!document.getElementById("month-input").value;
+  const monthInput = document.getElementById("month-input");
+  const warning = document.getElementById("month-warning");
+  const hasMonth = !!monthInput.value;
   const hasFile = !!uploadedFile;
+  const mismatch = hasFile && inferredUploadMonth && monthInput.value !== inferredUploadMonth;
+  warning.style.display = mismatch ? "block" : "none";
+  warning.textContent = mismatch
+    ? `Atenção: o arquivo sugere ${inferredUploadMonth.slice(5)}/${inferredUploadMonth.slice(0, 4)}, mas o mês selecionado é ${monthInput.value.slice(5)}/${monthInput.value.slice(0, 4)}.`
+    : "";
   document.getElementById("btn-save-catalog").disabled = !(hasMonth && hasFile);
 }
 
@@ -766,7 +798,7 @@ async function saveInventory() {
   // Se já existe inventário para este mês, pedir confirmação
   if (!pendingOverwrite) {
     try {
-      const res = await fetch("/api/list_inventories");
+      const res = await fetchWithRetry("/api/list_inventories");
       const list = await res.json();
       const existing = list.find(f => f.month_year === month_year);
       if (existing) {
@@ -789,7 +821,7 @@ async function saveInventory() {
 
   btn.disabled = true; btn.textContent = "Salvando...";
   try {
-    const res = await fetch("/api/save_inventory", {
+    const res = await fetchWithRetry("/api/save_inventory", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -799,7 +831,15 @@ async function saveInventory() {
         overwrite: !!pendingOverwrite
       })
     });
-    const result = await res.json();
+const result = await res.json();
+    if (res.status === 409 && !pendingOverwrite) {
+      btn.disabled = false; btn.textContent = "Salvar no Catálogo";
+      showConfirm("Mês já catalogado", `Já existe um inventário para ${month_year}. Deseja substituir o cadastro existente?`, "Substituir", () => {
+        pendingOverwrite = true;
+        saveInventory();
+      }, false);
+      return;
+    }
     pendingOverwrite = null;
     if (result.id) {
       showToast("Mês catalogado com sucesso!");
@@ -823,7 +863,7 @@ async function fetchCatalog() {
   setSelectMessage("");
 
   try {
-    const res = await fetch("/api/list_inventories");
+    const res = await fetchWithRetry("/api/list_inventories");
     catalogList = sortCatalogList(await res.json());
     if (res.ok && catalogList.length > 0) {
       populateSelects();
@@ -901,8 +941,8 @@ async function loadAndCompare(id1, id2) {
   
   try {
     const [res1, res2] = await Promise.all([
-      fetch(`/api/get_inventory?id=${encodeURIComponent(id1)}`),
-      fetch(`/api/get_inventory?id=${encodeURIComponent(id2)}`)
+      fetchWithRetry(`/api/get_inventory?id=${encodeURIComponent(id1)}`),
+      fetchWithRetry(`/api/get_inventory?id=${encodeURIComponent(id2)}`)
     ]);
     
     if(!res1.ok || !res2.ok) throw new Error("Erro ao buscar dados dos meses");
@@ -920,6 +960,7 @@ async function loadAndCompare(id1, id2) {
       `${inv1.month_year} vs ${inv2.month_year} · Custo Médio`;
       
     renderMetrics();
+    renderInsights();
     renderSummary();
     applyFilter();
     
@@ -972,6 +1013,17 @@ function renderMetrics() {
     <div class="metric"><label>Removidos</label><div class="val">${removidos}</div></div>`;
 }
 
+function renderInsights() {
+  const eligible = data.filter(r => r.u1 > 0 && r.u2 > 0 && r.dup != null);
+  const rises = [...eligible].filter(r => r.dup > 0).sort((a, b) => b.dup - a.dup).slice(0, 5);
+  const falls = [...eligible].filter(r => r.dup < 0).sort((a, b) => a.dup - b.dup).slice(0, 5);
+  const panel = (title, rows, cls) => `<div class="insight-panel"><h3>${title}</h3>${rows.length
+    ? rows.map(r => `<div class="insight-row"><strong title="${escapeHtml(r.desc)}">${escapeHtml(r.cod)} · ${escapeHtml(r.desc)}</strong><span class="delta ${cls}">${fmtR(r.dup, 1)}%</span></div>`).join("")
+    : '<div class="insight-row"><span>Nenhuma oscilação encontrada</span></div>'}</div>`;
+  document.getElementById("oscillation-insights").innerHTML =
+    panel("Maiores aumentos de custo unitário", rises, "up") +
+    panel("Maiores reduções de custo unitário", falls, "down");
+}
 function renderSummary() {
   const summary = {};
   Object.keys(CAT_LABEL).forEach(k => { summary[k] = { count: 0, p1: 0, p2: 0 }; });
@@ -1000,6 +1052,8 @@ function applyFilter() {
   const cat = document.getElementById("filt-cat").value;
   const varv = document.getElementById("filt-var").value;
   const view = document.getElementById("filt-view").value;
+  const status = document.getElementById("filt-status").value;
+  const minVariation = Math.max(0, Number(document.getElementById("filt-min").value) || 0);
   const srch = document.getElementById("filt-search").value.toLowerCase();
   filtered = data.filter(r => {
     if (view === "changed" && r.dq === 0 && r.du === 0 && r.dp === 0) return false;
@@ -1007,6 +1061,10 @@ function applyFilter() {
     if (varv === "alta" && r.du <= 0) return false;
     if (varv === "baixa" && r.du >= 0) return false;
     if (varv === "zero" && r.du !== 0) return false;
+    if (status === "novo" && !(r.q1 === 0 && r.q2 > 0)) return false;
+    if (status === "removido" && !(r.q1 > 0 && r.q2 === 0)) return false;
+    if (status === "existente" && !(r.q1 > 0 && r.q2 > 0)) return false;
+    if (minVariation > 0 && (r.dup == null || Math.abs(r.dup) < minVariation)) return false;
     if (srch && !r.cod.toLowerCase().includes(srch) && !r.desc.toLowerCase().includes(srch)) return false;
     return true;
   });
@@ -1019,6 +1077,8 @@ function resetFilter() {
   document.getElementById("filt-cat").value = "";
   document.getElementById("filt-var").value = "";
   document.getElementById("filt-view").value = "changed";
+  document.getElementById("filt-status").value = "";
+  document.getElementById("filt-min").value = "";
   document.getElementById("filt-search").value = "";
   applyFilter();
 }
@@ -1143,7 +1203,7 @@ async function loadManageList() {
     let html = '<div style="display:flex;flex-direction:column;gap:0.5rem;">';
     list.forEach(f => {
       html += `<div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius-md);padding:0.75rem 1rem;">
-        <div><strong>${escapeHtml(f.month_year)}</strong><br><span style="font-size:0.8rem;color:var(--text-sec)">${escapeHtml(f.filename || 'sem arquivo')}</span></div>
+        <div><strong>${escapeHtml(f.month_year)}</strong><br><span style="font-size:0.8rem;color:var(--text-sec)">${escapeHtml(f.filename || 'sem arquivo')} · ${Number(f.item_count || 0)} itens</span></div>
         <button class="btn btn-ghost" style="padding:0.3rem 0.8rem;font-size:0.8rem;background:var(--danger-bg);color:var(--danger);border-color:transparent;" onclick='confirmDelete(${inlineJson(f.id)}, ${inlineJson(f.month_year)})'>Excluir</button>
       </div>`;
     });
@@ -1203,6 +1263,70 @@ async function clearAllInventories() {
   }
 }
 
+async function exportBackup() {
+  try {
+    showToast("Preparando backup...", 0);
+    const listRes = await fetchWithRetry("/api/list_inventories");
+    if (!listRes.ok) throw new Error("Não foi possível listar os inventários");
+    const list = await listRes.json();
+    const inventories = await Promise.all(list.map(async item => {
+      const res = await fetchWithRetry(`/api/get_inventory?id=${encodeURIComponent(item.id)}`);
+      if (!res.ok) throw new Error(`Falha ao carregar ${item.month_year}`);
+      const inventory = await res.json();
+      return { month_year: inventory.month_year, filename: inventory.filename, data: inventory.data };
+    }));
+    const backup = { format: "implatec-inventory-backup", version: 1, exported_at: new Date().toISOString(), inventories };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `backup-inventarios-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showToast(`${inventories.length} inventário(s) exportado(s).`);
+  } catch (err) {
+    showToast(`Erro no backup: ${err.message}`);
+  }
+}
+
+async function selectBackupFile(event) {
+  const file = event.target.files[0];
+  event.target.value = "";
+  if (!file) return;
+  try {
+    const backup = JSON.parse(await file.text());
+    if (backup.format !== "implatec-inventory-backup" || backup.version !== 1 || !Array.isArray(backup.inventories)) {
+      throw new Error("arquivo de backup inválido");
+    }
+    const valid = backup.inventories.every(inv => /^\d{2}\/\d{4}$/.test(inv.month_year) && Array.isArray(inv.data));
+    if (!valid) throw new Error("o backup contém inventários inválidos");
+    showConfirm("Restaurar Backup", `${backup.inventories.length} inventário(s) serão restaurados. Meses existentes serão substituídos.`, "Restaurar", () => restoreBackup(backup.inventories), false);
+  } catch (err) {
+    showToast(`Erro: ${err.message}`);
+  }
+}
+
+async function restoreBackup(inventories) {
+  let restored = 0;
+  try {
+    showToast("Restaurando inventários...", 0);
+    for (const inventory of inventories) {
+      const res = await fetchWithRetry("/api/save_inventory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...inventory, overwrite: true })
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(`${inventory.month_year}: ${error.error || "falha ao salvar"}`);
+      }
+      restored++;
+    }
+    showToast(`${restored} inventário(s) restaurado(s).`);
+    loadManageList();
+  } catch (err) {
+    showToast(`Restauração interrompida após ${restored}: ${err.message}`, 6000);
+  }
+}
 // ==================== SAVE & SHARE ====================
 function shareCurrentAnalysis() {
   if(!currentM1_id || !currentM2_id) return;
@@ -1300,148 +1424,6 @@ async function fetchWithRetry(url, options = {}, maxRetries = 3) {
     }
   }
 }
-
-// Substitui os fetch das rotas de API pelo fetchWithRetry
-const _origSaveInventory = saveInventory;
-saveInventory = async function() {
-  const btn = document.getElementById('btn-save-catalog');
-  const monthRaw = document.getElementById('month-input').value;
-  if (!uploadedFile || !monthRaw) return;
-
-  const [yyyy, mm] = monthRaw.split('-');
-  const month_year = `${mm}/${yyyy}`;
-
-  // Se já existe inventário para este mês, pedir confirmação
-  if (!pendingOverwrite) {
-    try {
-      const res = await fetchWithRetry('/api/list_inventories');
-      const list = await res.json();
-      const existing = list.find(f => f.month_year === month_year);
-      if (existing) {
-        showConfirm(
-          'Mês já catalogado',
-          `Já existe um inventário para ${month_year} (${existing.filename || 'sem arquivo'}). Deseja substituí-lo?`,
-          'Substituir',
-          () => {
-            pendingOverwrite = true;
-            saveInventory();
-          }
-        );
-        return;
-      }
-    } catch(e) {
-      // Se falhou ao verificar, tenta salvar direto
-    }
-  }
-
-  btn.disabled = true; btn.textContent = 'Salvando...';
-  try {
-    const res = await fetchWithRetry('/api/save_inventory', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        month_year,
-        filename: uploadedFile.name,
-        data: uploadedFile.items,
-        overwrite: !!pendingOverwrite
-      })
-    });
-    const result = await res.json();
-
-    if (res.status === 409 && !pendingOverwrite) {
-      btn.disabled = false; btn.textContent = 'Salvar no Catálogo';
-      showConfirm(
-        'Mês já catalogado',
-        `Já existe um inventário para ${month_year}. Deseja substituir o cadastro existente?`,
-        'Substituir',
-        () => {
-          pendingOverwrite = true;
-          saveInventory();
-        },
-        false
-      );
-      return;
-    }
-
-    pendingOverwrite = null;
-    if (result.id) {
-      showToast('Mês catalogado com sucesso!');
-      setTimeout(() => showMenu(), 1500);
-    } else {
-      showToast('Erro: ' + (result.hint || result.error || 'desconhecido'));
-    }
-  } catch (e) {
-    pendingOverwrite = null;
-    showToast('Erro de conexão ao salvar');
-  }
-  btn.disabled = false; btn.textContent = 'Salvar no Catálogo';
-};
-
-const _origFetchCatalog = fetchCatalog;
-fetchCatalog = async function() {
-  document.getElementById('select-loading').style.display = 'block';
-  document.getElementById('select-controls').style.display = 'none';
-  document.getElementById('btn-compare').disabled = true;
-  setSelectMessage('');
-
-  try {
-    const res = await fetchWithRetry('/api/list_inventories');
-    catalogList = sortCatalogList(await res.json());
-    if (res.ok && catalogList.length > 0) {
-      populateSelects();
-      document.getElementById('select-controls').style.display = 'flex';
-      document.getElementById('btn-compare').disabled = catalogList.length < 2;
-      if (catalogList.length < 2) {
-        setSelectMessage('Você precisa catalogar pelo menos dois meses para gerar a comparação de oscilação.');
-      }
-    } else {
-      document.getElementById('select-loading').innerHTML = "Nenhum inventário catalogado ainda.<br><br><button class='btn btn-ghost' onclick='showUpload()'>Catalogar Primeiro Mês</button>";
-      return;
-    }
-  } catch (e) {
-    document.getElementById('select-loading').textContent = 'Erro ao carregar o catálogo.';
-  }
-  document.getElementById('select-loading').style.display = 'none';
-};
-
-const _origLoadAndCompare = loadAndCompare;
-loadAndCompare = async function(id1, id2) {
-  const btn = document.getElementById('btn-compare');
-  if (btn) { btn.disabled = true; btn.textContent = 'Baixando dados...'; }
-
-  showDashboard();
-  document.getElementById('metrics').innerHTML = '<div class="loading"><div class="spinner"></div><p>Buscando dados no banco...</p></div>';
-
-  try {
-    const [res1, res2] = await Promise.all([
-      fetchWithRetry(`/api/get_inventory?id=${encodeURIComponent(id1)}`),
-      fetchWithRetry(`/api/get_inventory?id=${encodeURIComponent(id2)}`)
-    ]);
-
-    if (!res1.ok || !res2.ok) throw new Error('Erro ao buscar dados dos meses');
-
-    const inv1 = await res1.json();
-    const inv2 = await res2.json();
-
-    currentM1_id = inv1.id;
-    currentM2_id = inv2.id;
-
-    const merged = crossFiles(inv1.data, inv2.data);
-    data = merged.map(r => ({ ...r, ...computeDeltas(r) }));
-
-    document.getElementById('dash-subtitle').textContent =
-      `${inv1.month_year} vs ${inv2.month_year} · Custo Médio`;
-
-    renderMetrics();
-    renderSummary();
-    applyFilter();
-
-  } catch (e) {
-    document.getElementById('metrics').innerHTML = `<div style="text-align:center;padding:3rem;color:var(--danger)"><p>${e.message}</p><button class="btn btn-primary mt-4" onclick="showSelect()">← Voltar</button></div>`;
-  }
-
-  if (btn) { btn.disabled = false; btn.textContent = 'Gerar Comparativo'; }
-};
 
 // ==================== INIT ====================
 (function() {

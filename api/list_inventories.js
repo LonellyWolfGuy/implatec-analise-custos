@@ -13,7 +13,11 @@ export default async function handler(req, res) {
   try {
     const pool = await getDbPool();
     const result = await pool.request()
-      .query('SELECT id, month_year, filename, created_at FROM monthly_inventories');
+      .query(`
+        SELECT id, month_year, filename, created_at,
+          CASE WHEN ISJSON(data) = 1 THEN (SELECT COUNT(*) FROM OPENJSON(data)) ELSE 0 END AS item_count
+        FROM monthly_inventories
+      `);
 
     const data = result.recordset || [];
 
