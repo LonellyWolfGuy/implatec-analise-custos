@@ -180,13 +180,23 @@ td.desc { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow
   font-size: 0.85rem; font-weight: 500; z-index: 1001; animation: fadeIn .3s ease-out; }
 .hidden-analysis { max-width: 500px; margin: 6rem auto; text-align: center; }
 .month-warning { display:none; margin-top:0.6rem; padding:0.65rem 0.75rem; border:1px solid #d97706; background:rgba(217,119,6,.08); color:#b45309; border-radius:var(--radius-sm); font-size:.82rem; }
-.insights { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.25rem; }
+.insights { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:1rem; margin-bottom:1.25rem; }
 .insight-panel { border:1px solid var(--border); background:var(--bg-panel); border-radius:var(--radius-md); overflow:hidden; }
 .insight-panel h3 { font-size:.88rem; padding:.75rem 1rem; border-bottom:1px solid var(--border); }
 .insight-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.75rem; padding:.65rem 1rem; border-bottom:1px solid var(--border); font-size:.82rem; }
 .insight-row:last-child { border-bottom:0; }
 .insight-row strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .manage-toolbar { display:flex; flex-wrap:wrap; gap:.65rem; margin-bottom:1rem; }
+.import-preview { display:none; text-align:left; margin:1rem 0; border:1px solid var(--border); background:var(--bg-panel); border-radius:var(--radius-md); padding:1rem; }
+.import-preview h3 { font-size:.9rem; margin-bottom:.65rem; }
+.preview-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:.65rem; }
+.preview-stat { padding:.6rem; background:var(--table-hdr); border-radius:var(--radius-sm); }
+.preview-stat span { display:block; color:var(--text-sec); font-size:.72rem; }
+.preview-stat strong { font-size:1rem; }
+.quality-list { margin-top:.75rem; font-size:.8rem; color:var(--text-sec); line-height:1.55; }
+.chart-panel { margin-bottom:1.5rem; border:1px solid var(--border); background:var(--bg-panel); border-radius:var(--radius-md); padding:1rem; }
+.chart-panel h3 { font-size:.9rem; margin-bottom:.75rem; }
+.chart-panel canvas { width:100%; height:220px; display:block; }
 @media (max-width:720px) { .insights { grid-template-columns:1fr; } }
 .spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid var(--border);
   border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; margin-bottom: 0.5rem; }
@@ -233,6 +243,8 @@ td.desc { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow
       </div>
 
       <div id="file-list" class="file-list"></div>
+
+      <div id="import-preview" class="import-preview"></div>
 
       <div id="drop-zone" class="drop-zone" role="button" tabindex="0">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -287,6 +299,7 @@ td.desc { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow
       </div>
       <div style="display:flex; gap:0.75rem; align-items:center;">
         <button class="btn btn-ghost" onclick="showMenu()" style="padding:0.4rem 1rem;font-size:0.85rem;">← Menu Inicial</button>
+        <button class="btn btn-ghost" onclick="window.print()" style="padding:0.4rem 1rem;font-size:0.85rem;">Imprimir Relatório</button>
         <button id="btn-share" class="btn btn-ghost" onclick="shareCurrentAnalysis()" style="padding:0.4rem 1rem;font-size:0.85rem;">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
           Compartilhar
@@ -301,6 +314,8 @@ td.desc { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow
     <div class="metrics" id="metrics"></div>
 
     <div class="insights" id="oscillation-insights"></div>
+
+    <div class="chart-panel"><h3>Evolução histórica do valor do inventário</h3><canvas id="history-chart" width="1100" height="220"></canvas></div>
 
     <div class="summary-section">
       <h3><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Resumo Consolidado por Categoria</h3>
@@ -425,6 +440,8 @@ const REV_PREFIX = Object.fromEntries(Object.entries(CAT_PREFIX).map(([k,v])=>({
 
 let uploadedFile = null; // Apenas 1 arquivo para catalogar
 let inferredUploadMonth = "";
+let uploadDiagnostics = null;
+let pendingMonthMismatch = false;
 let catalogList = []; // Lista de inventários vindos da API
 let currentM1_id = null;
 let currentM2_id = null;
@@ -464,9 +481,16 @@ function inferMonthInputFromFilename(filename) {
   const base = String(filename || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const numeric = base.match(/(?:^|[^\d])(\d{1,2})[._\-/ ]+(\d{2,4})(?:[^\d]|$)/);
   if (numeric) {
-    const mm = numeric[1].padStart(2, "0");
-    const yyyy = numeric[2].length === 2 ? `20${numeric[2]}` : numeric[2];
-    if (Number(mm) >= 1 && Number(mm) <= 12) return `${yyyy}-${mm}`;
+    const first = Number(numeric[1]);
+    const second = Number(numeric[2]);
+    if (first >= 1 && first <= 12) {
+      const mm = String(first).padStart(2, "0");
+      const yyyy = numeric[2].length === 2 ? `20${numeric[2]}` : numeric[2];
+      return `${yyyy}-${mm}`;
+    }
+    if (numeric[1].length === 2 && first >= 20 && second >= 1 && second <= 12) {
+      return `20${numeric[1]}-${String(second).padStart(2, "0")}`;
+    }
   }
 
   for (const [name, mm] of Object.entries(MONTH_NAMES)) {
@@ -508,7 +532,9 @@ function computeDeltas(r) {
   const dqp = r.q1 ? ((r.q2 - r.q1) / r.q1) * 100 : null;
   const dup = r.u1 ? ((r.u2 - r.u1) / r.u1) * 100 : null;
   const dpp = r.p1 ? ((r.p2 - r.p1) / r.p1) * 100 : null;
-  return { dq, du, dp, dqp, dup, dpp };
+const costImpact = (r.u2 - r.u1) * r.q2;
+  const quantityImpact = (r.q2 - r.q1) * r.u1;
+  return { dq, du, dp, dqp, dup, dpp, costImpact, quantityImpact };
 }
 
 // ==================== THEME ====================
@@ -696,13 +722,68 @@ async function processFile(file, onProgress) {
   return null;
 }
 
+function analyzeImportedItems(items) {
+  const seen = new Set();
+  const duplicateCodes = new Set();
+  let missingCode = 0, missingDescription = 0, zeroCost = 0, negativeValues = 0;
+
+  items.forEach(item => {
+    const code = String(item.cod || "").trim();
+    if (!code) missingCode++;
+    else if (seen.has(code)) duplicateCodes.add(code);
+    else seen.add(code);
+    if (!String(item.desc || "").trim()) missingDescription++;
+    if (Number(item.unitCost || 0) === 0) zeroCost++;
+    if ([item.qty, item.unitCost, item.totalCost].some(value => Number(value || 0) < 0)) negativeValues++;
+  });
+
+  return {
+    total: items.length,
+    validCodes: seen.size,
+    duplicateCodes: duplicateCodes.size,
+    missingCode,
+    missingDescription,
+    zeroCost,
+    negativeValues,
+    hasWarnings: duplicateCodes.size + missingCode + missingDescription + zeroCost + negativeValues > 0
+  };
+}
+
+function renderImportPreview() {
+  const el = document.getElementById("import-preview");
+  if (!uploadedFile || !uploadDiagnostics) {
+    el.style.display = "none";
+    el.innerHTML = "";
+    return;
+  }
+  const d = uploadDiagnostics;
+  const warnings = [
+    d.duplicateCodes && `${d.duplicateCodes} código(s) duplicado(s)`,
+    d.missingCode && `${d.missingCode} item(ns) sem código`,
+    d.missingDescription && `${d.missingDescription} item(ns) sem descrição`,
+    d.zeroCost && `${d.zeroCost} item(ns) com custo unitário zerado`,
+    d.negativeValues && `${d.negativeValues} item(ns) com valor negativo`
+  ].filter(Boolean);
+  el.style.display = "block";
+  el.innerHTML = `<h3>Pré-visualização da importação</h3>
+    <div class="preview-grid">
+      <div class="preview-stat"><span>Arquivo</span><strong>${escapeHtml(uploadedFile.name)}</strong></div>
+      <div class="preview-stat"><span>Itens lidos</span><strong>${d.total}</strong></div>
+      <div class="preview-stat"><span>Códigos únicos</span><strong>${d.validCodes}</strong></div>
+      <div class="preview-stat"><span>Alertas</span><strong class="${warnings.length ? 'up' : 'down'}">${warnings.length}</strong></div>
+    </div>
+    <div class="quality-list">${warnings.length ? warnings.map(w => `• ${escapeHtml(w)}`).join("<br>") : "Nenhuma inconsistência estrutural encontrada."}</div>`;
+}
 // ==================== UPLOAD UI ====================
 function resetUploadState() {
   uploadedFile = null;
   inferredUploadMonth = "";
+  uploadDiagnostics = null;
+  pendingMonthMismatch = false;
   pendingOverwrite = null;
   document.getElementById("file-input").value = '';
   document.getElementById("file-list").innerHTML = '';
+  renderImportPreview();
   checkUploadReady();
 }
 
@@ -752,6 +833,7 @@ async function addFile(file) {
     });
     if (result) {
       uploadedFile = result;
+      uploadDiagnostics = analyzeImportedItems(result.items);
       const inferredMonth = inferMonthInputFromFilename(result.name);
       inferredUploadMonth = inferredMonth;
       const monthInput = document.getElementById("month-input");
@@ -769,6 +851,7 @@ async function addFile(file) {
     item.innerHTML = `<span class="name">${escapeHtml(file.name)}</span><span class="meta" style="color:var(--danger)">Erro ao processar</span>`;
     console.error(err);
   }
+  renderImportPreview();
   checkUploadReady();
 }
 
@@ -794,6 +877,17 @@ async function saveInventory() {
   
   const [yyyy, mm] = monthRaw.split('-');
   const month_year = `${mm}/${yyyy}`;
+
+  if (inferredUploadMonth && monthRaw !== inferredUploadMonth && !pendingMonthMismatch) {
+    showConfirm(
+      "Confirmar mês de referência",
+      `O arquivo sugere ${inferredUploadMonth.slice(5)}/${inferredUploadMonth.slice(0, 4)}, mas será salvo como ${month_year}. Confirma esta referência?`,
+      "Confirmar mês",
+      () => { pendingMonthMismatch = true; saveInventory(); },
+      false
+    );
+    return;
+  }
 
   // Se já existe inventário para este mês, pedir confirmação
   if (!pendingOverwrite) {
@@ -962,6 +1056,7 @@ async function loadAndCompare(id1, id2) {
     renderMetrics();
     renderInsights();
     renderSummary();
+    renderHistoryChart();
     applyFilter();
     
   } catch(e) {
@@ -997,6 +1092,8 @@ function renderMetrics() {
   const baixa = data.filter(r => r.du < 0).length;
   const novos = data.filter(r => r.q1 === 0 && r.q2 > 0).length;
   const removidos = data.filter(r => r.q2 === 0 && r.q1 > 0).length;
+  const costImpact = data.reduce((sum, r) => sum + r.costImpact, 0);
+  const quantityImpact = data.reduce((sum, r) => sum + r.quantityImpact, 0);
 
   const arrowUp = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>';
   const arrowDn = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>';
@@ -1010,19 +1107,67 @@ function renderMetrics() {
     <div class="metric"><label>↑ Custo Subiu</label><div class="val up">${alta} itens</div></div>
     <div class="metric"><label>↓ Custo Baixou</label><div class="val down">${baixa} itens</div></div>
     <div class="metric"><label>Novos (Mês 2)</label><div class="val">${novos}</div></div>
-    <div class="metric"><label>Removidos</label><div class="val">${removidos}</div></div>`;
+    <div class="metric"><label>Removidos</label><div class="val">${removidos}</div></div>
+    <div class="metric"><label>Impacto do Custo</label><div class="val ${deltaClass(costImpact)}">R$ ${fmtR(costImpact)}</div></div>
+    <div class="metric"><label>Impacto da Quantidade</label><div class="val ${deltaClass(quantityImpact)}">R$ ${fmtR(quantityImpact)}</div></div>`;
 }
 
 function renderInsights() {
   const eligible = data.filter(r => r.u1 > 0 && r.u2 > 0 && r.dup != null);
   const rises = [...eligible].filter(r => r.dup > 0).sort((a, b) => b.dup - a.dup).slice(0, 5);
   const falls = [...eligible].filter(r => r.dup < 0).sort((a, b) => a.dup - b.dup).slice(0, 5);
-  const panel = (title, rows, cls) => `<div class="insight-panel"><h3>${title}</h3>${rows.length
-    ? rows.map(r => `<div class="insight-row"><strong title="${escapeHtml(r.desc)}">${escapeHtml(r.cod)} · ${escapeHtml(r.desc)}</strong><span class="delta ${cls}">${fmtR(r.dup, 1)}%</span></div>`).join("")
-    : '<div class="insight-row"><span>Nenhuma oscilação encontrada</span></div>'}</div>`;
+  const impacts = [...eligible].sort((a, b) => Math.abs(b.costImpact) - Math.abs(a.costImpact)).slice(0, 5);
+  const anomalies = data.filter(r => r.u1 < 0 || r.u2 < 0 || r.u1 === 0 || r.u2 === 0 || (r.dup != null && Math.abs(r.dup) >= 50)).slice(0, 5);
+  const panel = (title, rows, value, cls) => `<div class="insight-panel"><h3>${title}</h3>${rows.length
+    ? rows.map(r => `<div class="insight-row"><strong title="${escapeHtml(r.desc)}">${escapeHtml(r.cod)} · ${escapeHtml(r.desc)}</strong><span class="delta ${typeof cls === 'function' ? cls(r) : cls}">${value(r)}</span></div>`).join("")
+    : '<div class="insight-row"><span>Nenhum item encontrado</span></div>'}</div>`;
   document.getElementById("oscillation-insights").innerHTML =
-    panel("Maiores aumentos de custo unitário", rises, "up") +
-    panel("Maiores reduções de custo unitário", falls, "down");
+    panel("Maiores aumentos unitários", rises, r => `${fmtR(r.dup, 1)}%`, "up") +
+    panel("Maiores reduções unitárias", falls, r => `${fmtR(r.dup, 1)}%`, "down") +
+    panel("Maior impacto financeiro", impacts, r => `R$ ${fmtR(r.costImpact)}`, r => deltaClass(r.costImpact)) +
+    panel("Anomalias para revisão", anomalies, r => r.dup == null ? "Custo zerado" : `${fmtR(r.dup, 1)}%`, "up");
+}
+
+async function renderHistoryChart() {
+  const canvas = document.getElementById("history-chart");
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  try {
+    const res = await fetchWithRetry("/api/history");
+    if (!res.ok) throw new Error("Histórico indisponível");
+    const history = await res.json();
+    if (!history.length) throw new Error("Sem dados históricos");
+
+    const pad = { left: 70, right: 25, top: 20, bottom: 38 };
+    const width = canvas.width - pad.left - pad.right;
+    const height = canvas.height - pad.top - pad.bottom;
+    const max = Math.max(...history.map(item => item.total_cost), 1);
+    const step = width / Math.max(history.length - 1, 1);
+    const styles = getComputedStyle(document.documentElement);
+    const accent = styles.getPropertyValue("--accent").trim() || "#2563eb";
+    const textColor = styles.getPropertyValue("--text-sec").trim() || "#64748b";
+
+    ctx.strokeStyle = accent; ctx.lineWidth = 3; ctx.beginPath();
+    history.forEach((item, index) => {
+      const x = pad.left + index * step;
+      const y = pad.top + height - (item.total_cost / max) * height;
+      index ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    });
+    ctx.stroke();
+    ctx.fillStyle = textColor; ctx.font = "12px sans-serif"; ctx.textAlign = "center";
+    history.forEach((item, index) => {
+      const x = pad.left + index * step;
+      const y = pad.top + height - (item.total_cost / max) * height;
+      ctx.fillStyle = accent; ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = textColor; ctx.fillText(item.month_year, x, canvas.height - 12);
+    });
+    ctx.textAlign = "right";
+    ctx.fillText(`R$ ${fmt(max, 0)}`, pad.left - 8, pad.top + 4);
+    ctx.fillText("R$ 0", pad.left - 8, pad.top + height);
+  } catch (err) {
+    ctx.fillStyle = "#64748b"; ctx.font = "14px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText(err.message, canvas.width / 2, canvas.height / 2);
+  }
 }
 function renderSummary() {
   const summary = {};

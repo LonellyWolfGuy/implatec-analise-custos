@@ -123,3 +123,9 @@ As categorias são inferidas pelo prefixo do código:
 ## Licença
 
 Uso interno — Implatec Perfis Plásticos.
+
+## Segurança e auditoria
+
+O arquivo `sql-seguranca-auditoria.sql` cria um histórico automático de inserções, substituições e exclusões. Execute-o uma vez no SQL Editor do Supabase. A tabela `inventory_audit` guarda a versão completa de cada inventário alterado.
+
+As policies autenticadas estão preparadas no final do arquivo, mas comentadas para não interromper o uso atual. Ative-as somente depois de cadastrar os usuários no Supabase Auth e habilitar o login da aplicação.
