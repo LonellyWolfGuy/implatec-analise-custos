@@ -1,0 +1,21 @@
+name: Atualizar dados abertos PGFN
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "20 5 10 1,4,7,10 *"
+
+permissions:
+  contents: read
+
+jobs:
+  cruzamento:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cruzar fornecedores com as bases da PGFN
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: python scripts/sync_pgfn.py

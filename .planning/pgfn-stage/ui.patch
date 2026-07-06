@@ -1,0 +1,77 @@
+diff --git a/public/app.js b/public/app.js
+--- a/public/app.js
++++ b/public/app.js
+@@ -19,9 +19,9 @@ async function load() {
+     suppliers = data;
+     $('#cards').innerHTML = [
+-      ['Fornecedores ativos', dashboard.ativos], ['Já consultados', dashboard.consultados],
+-      ['Pendentes de consulta', dashboard.pendentes], ['Risco crítico', dashboard.criticos, 'danger']
++      ['Fornecedores ativos', dashboard.ativos], ['Analisados na PGFN', dashboard.analisados],
++      ['Ocorrências encontradas', dashboard.com_ocorrencia], ['Dívida em cobrança', dashboard.irregulares, 'danger']
+     ].map(([label,value,kind]) => `<article class="card ${kind || ''}"><span>${label}</span><b>${value}</b></article>`).join('');
+     render(data);
+@@ -36,8 +36,16 @@ function render(items) {
+   $('#supplierRows').innerHTML = items.map(item => {
+     const check = item.ultima_consulta;
+-    const risk = (check?.nivel_risco || 'PENDENTE').toLowerCase();
+-    return `<tr><td><b>${escapeHtml(item.razao_social)}</b><small>${escapeHtml(item.nome_fantasia || item.categoria || '')}</small></td><td>${formatCnpj(item.cnpj)}</td><td>${formatDate(check?.consultado_em)}</td><td><span class="badge ${check?.cnd_federal === 'NEGATIVA' ? 'regular' : check?.cnd_federal === 'POSITIVA' ? 'critico' : 'atencao'}">${statusLabel(check?.cnd_federal)}</span></td><td><span class="badge ${risk}">${check?.nivel_risco || 'PENDENTE'}${check ? ` · ${check.score_risco}` : ''}</span></td><td><button class="row-action" data-assess="${item.id}">Registrar consulta</button></td></tr>`;
++    const pgfn = item.pgfn;
++    const pgfnLabel = !pgfn ? 'Aguardando base' : pgfn.irregular ? 'Em cobrança' : pgfn.encontrado ? 'Regularizada/suspensa' : 'Sem ocorrência';
++    const pgfnClass = !pgfn ? 'atencao' : pgfn.irregular ? 'critico' : 'regular';
++    const money = pgfn?.valor_irregular ? new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(pgfn.valor_irregular) : '';
++    return `<tr><td><b>${escapeHtml(item.razao_social)}</b><small>${escapeHtml(item.nome_fantasia || item.categoria || '')}</small></td>
++      <td>${formatCnpj(item.cnpj)}</td>
++      <td>${formatDate(pgfn?.consultado_em)}<small>${escapeHtml(pgfn?.referencia || '')}</small></td>
++      <td><span class="badge ${pgfnClass}">${pgfnLabel}</span><small>${money}</small></td>
++      <td><span class="badge ${check ? (check.nivel_risco || '').toLowerCase() : 'atencao'}">${check?.nivel_risco || 'CND não verificada'}</span></td>
++      <td><button class="row-action" data-assess="${item.id}">Complementar</button></td></tr>`;
+   }).join('');
+diff --git a/public/index.html b/public/index.html
+--- a/public/index.html
++++ b/public/index.html
+@@ -15,10 +15,11 @@
+   <main>
+-    <header><div><p class="eyebrow">COMPLIANCE DE FORNECEDORES</p><h1>Saúde fiscal da cadeia</h1><p class="subtitle">Acompanhe regularidade, dívidas e sinais de risco em um só lugar.</p></div><button class="primary" id="openImport">+ Importar lista</button></header>
++    <header><div><p class="eyebrow">COMPLIANCE DE FORNECEDORES</p><h1>Saúde fiscal da cadeia</h1><p class="subtitle">Cruzamento gratuito com os dados abertos trimestrais da PGFN.</p></div><button class="primary" id="openImport">+ Importar lista</button></header>
+     <section class="cards" id="cards"></section>
+     <section class="panel">
+-      <div class="panel-head"><div><h2>Fornecedores</h2><p>Última situação registrada para cada CNPJ</p></div><label class="search">⌕ <input id="search" placeholder="Buscar CNPJ ou razão social"></label></div>
+-      <div class="table-wrap"><table><thead><tr><th>Fornecedor</th><th>CNPJ</th><th>Última consulta</th><th>Regularidade</th><th>Risco</th><th></th></tr></thead><tbody id="supplierRows"></tbody></table></div>
++      <div class="panel-head"><div><h2>Fornecedores</h2><p>Ausência na base não equivale a CND negativa; confirme fornecedores críticos por certidão.</p></div><label class="search">⌕ <input id="search" placeholder="Buscar CNPJ ou razão social"></label></div>
++      <div class="table-wrap"><table><thead><tr><th>Fornecedor</th><th>CNPJ</th><th>Base PGFN</th><th>Dívida ativa</th><th>Análise complementar</th><th></th></tr></thead><tbody id="supplierRows"></tbody></table></div>
+diff --git a/sql/schema.sql b/sql/schema.sql
+--- a/sql/schema.sql
++++ b/sql/schema.sql
+@@ -36,6 +36,25 @@ create index if not exists consultas_fornecedor_data_idx on public.consultas_fornecedores(fornecedor_id, consultado_em desc);
++create table if not exists public.pgfn_consultas (
++  id uuid primary key default gen_random_uuid(), fornecedor_id uuid not null references public.fornecedores(id) on delete cascade,
++  referencia text not null, encontrado boolean not null default false, irregular boolean not null default false,
++  quantidade_inscricoes integer not null default 0, valor_total numeric(18,2) not null default 0,
++  valor_irregular numeric(18,2) not null default 0, valor_regularizado numeric(18,2) not null default 0,
++  tipos_divida jsonb not null default '[]'::jsonb, situacoes jsonb not null default '[]'::jsonb,
++  fontes jsonb not null default '[]'::jsonb, consultado_em timestamptz not null default now(),
++  unique (fornecedor_id, referencia)
++);
++create index if not exists pgfn_fornecedor_data_idx on public.pgfn_consultas(fornecedor_id, consultado_em desc);
++alter table public.pgfn_consultas enable row level security;
++comment on table public.pgfn_consultas is 'Dados abertos PGFN; ausência não equivale a CND negativa.';
++
+ alter table public.fornecedores enable row level security;
+ alter table public.consultas_fornecedores enable row level security;
+diff --git a/README.md b/README.md
+--- a/README.md
++++ b/README.md
+@@ -61,3 +61,15 @@ Configure `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` como segredos na Vercel.
+ Antes de disponibilizar a terceiros, acrescente autenticação (Supabase Auth/SSO) às funções de API; a chave `service_role` nunca deve chegar ao navegador.
++
++## Dados abertos da PGFN
++
++A rotina `scripts/sync_pgfn.py` baixa as três bases trimestrais oficiais (não previdenciária, previdenciária e FGTS), filtra somente os CNPJs ativos no sistema e grava o resumo em `pgfn_consultas`. Ela roda trimestralmente pelo GitHub Actions e também pode ser acionada manualmente.
++
++Antes da primeira execução:
++
++1. Execute `sql/pgfn-migration.sql` no SQL Editor do Supabase.
++2. No GitHub, cadastre os Actions Secrets `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`.
++3. Abra Actions → Atualizar dados abertos PGFN → Run workflow.
++
++A base aberta informa inscrições em dívida ativa e sua situação. “Sem ocorrência” não comprova regularidade fiscal e não substitui CND.

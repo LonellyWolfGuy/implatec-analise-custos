@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Radar Fiscal — Fornecedores</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <aside>
+    <div class="brand"><span>RF</span><div><b>Radar Fiscal</b><small>Gestão de fornecedores</small></div></div>
+    <nav><button class="active">Visão geral</button><button id="navImport">Importar fornecedores</button></nav>
+    <div class="aside-note"><b>Reforma tributária</b><p>Centralize evidências fiscais e acompanhe riscos antes que afetem o abastecimento.</p></div>
+  </aside>
+  <main>
+    <header><div><p class="eyebrow">COMPLIANCE DE FORNECEDORES</p><h1>Saúde fiscal da cadeia</h1><p class="subtitle">Acompanhe regularidade, dívidas e sinais de risco em um só lugar.</p></div><button class="primary" id="openImport">+ Importar lista</button></header>
+    <section class="cards" id="cards"></section>
+    <section class="panel">
+      <div class="panel-head"><div><h2>Fornecedores</h2><p>Última situação registrada para cada CNPJ</p></div><label class="search">⌕ <input id="search" placeholder="Buscar CNPJ ou razão social"></label></div>
+      <div class="table-wrap"><table><thead><tr><th>Fornecedor</th><th>CNPJ</th><th>Última consulta</th><th>Regularidade</th><th>Risco</th><th></th></tr></thead><tbody id="supplierRows"></tbody></table></div>
+      <div class="empty" id="empty"><b>Nenhum fornecedor cadastrado</b><p>Importe uma planilha CSV ou cadastre o primeiro CNPJ.</p></div>
+    </section>
+  </main>
+
+  <dialog id="importDialog"><form method="dialog" class="modal"><div class="modal-head"><div><h2>Importar fornecedores</h2><p>CSV com as colunas cnpj, razao_social, nome_fantasia e categoria.</p></div><button class="icon" value="cancel">×</button></div><label class="drop"><input type="file" id="csvFile" accept=".csv,text/csv"><b>Selecione o arquivo CSV</b><span>Até 1.000 registros por importação</span></label><div class="or">ou cadastre manualmente</div><div class="grid"><label>CNPJ<input id="manualCnpj" placeholder="00.000.000/0000-00"></label><label>Razão social<input id="manualName" placeholder="Empresa Ltda."></label></div><p class="error" id="importError"></p><div class="actions"><button value="cancel">Cancelar</button><button type="button" class="primary" id="saveSupplier">Salvar</button></div></form></dialog>
+
+  <dialog id="assessmentDialog"><form method="dialog" class="modal wide"><div class="modal-head"><div><h2>Registrar consulta</h2><p id="assessmentSupplier"></p></div><button class="icon" value="cancel">×</button></div><input type="hidden" id="assessmentId"><div class="form-grid"><label>Situação do CNPJ<select id="cnpjStatus"><option>ATIVA</option><option>INAPTA</option><option>BAIXADA</option><option>SUSPENSA</option><option>NAO_CONSULTADO</option></select></label><label>CND federal<select id="cnd"><option value="NEGATIVA">Negativa</option><option value="POSITIVA_COM_EFEITO_NEGATIVA">Positiva com efeito de negativa</option><option value="POSITIVA">Positiva</option><option value="NAO_CONSULTADO">Não consultado</option></select></label><label>FGTS<select id="fgts"><option value="REGULAR">Regular</option><option value="IRREGULAR">Irregular</option><option value="NAO_CONSULTADO">Não consultado</option></select></label><label>CNDT<select id="cndt"><option value="NEGATIVA">Negativa</option><option value="POSITIVA">Positiva</option><option value="NAO_CONSULTADO">Não consultado</option></select></label><label class="check"><input type="checkbox" id="debt"> Inscrito em dívida ativa</label><label class="check"><input type="checkbox" id="negative"> Negativado (bureau autorizado)</label><label>Valor da dívida ativa<input type="number" id="debtValue" min="0" step="0.01" value="0"></label><label>Validade da CND<input type="date" id="validity"></label><label class="full">Observações<textarea id="notes" rows="3"></textarea></label></div><p class="error" id="assessmentError"></p><div class="actions"><button value="cancel">Cancelar</button><button type="button" class="primary" id="saveAssessment">Registrar evidência</button></div></form></dialog>
+  <div class="toast" id="toast"></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

@@ -92,6 +92,7 @@ Acesse `http://localhost:3000`.
 | `SUPABASE_SERVICE_ROLE_KEY` | Chave service role para sobrescrever/remover inventários pelo backend |
 
 4. Clique em **Deploy**
+5. O Vercel ativará automaticamente o Cron Job configurado no arquivo `vercel.json`, que acessa a rota `/api/keepalive` diariamente para evitar que o projeto no Supabase seja pausado por inatividade.
 
 ## Uso
 
