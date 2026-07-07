@@ -1,0 +1,1696 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Implatec — Análise de Custos</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
+  onerror="this.onerror=null;document.write('<script src=\'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js\'><\/script>')"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.5.2/papaparse.min.js"
+  onerror="this.onerror=null;document.write('<script src=\'https://unpkg.com/papaparse@5.5.2/papaparse.min.js\'><\/script>')"></script>
+<script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+:root {
+  --font-sans: 'Outfit', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --bg: #f8fafc; --bg-panel: rgba(255,255,255,0.8); --bg-card: rgba(255,255,255,0.9);
+  --bg-hover: rgba(0,0,0,0.03); --text: #0f172a; --text-sec: #475569; --text-muted: #94a3b8;
+  --border: rgba(0,0,0,0.08); --accent: #3b82f6; --accent-glow: rgba(59,130,246,0.2);
+  --success: #10b981; --success-bg: rgba(16,185,129,0.15); --danger: #ef4444; --danger-bg: rgba(239,68,68,0.15);
+  --warning: #f59e0b; --warning-bg: rgba(245,158,11,0.15); --info: #3b82f6; --info-bg: rgba(59,130,246,0.15);
+  --radius-sm: 6px; --radius-md: 8px; --radius-lg: 12px; --radius-full: 9999px;
+  --shadow-sm: 0 2px 4px -1px rgba(0,0,0,0.05); --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.05),0 10px 15px -3px rgba(0,0,0,0.05);
+  --input-bg: rgba(255,255,255,0.8); --table-hdr: rgba(0,0,0,0.03); --btn-bg: rgba(0,0,0,0.03); --btn-hover: rgba(0,0,0,0.06);
+}
+[data-theme="dark"] {
+  --bg: #0f111a; --bg-panel: rgba(22,27,34,0.7); --bg-card: rgba(33,38,45,0.6);
+  --bg-hover: rgba(255,255,255,0.04); --text: #f0f6fc; --text-sec: #8b949e; --text-muted: #484f58;
+  --border: rgba(240,246,252,0.1); --accent: #58a6ff; --accent-glow: rgba(88,166,255,0.3);
+  --success: #3fb950; --success-bg: rgba(63,185,80,0.15); --danger: #f85149; --danger-bg: rgba(248,81,73,0.15);
+  --warning: #d29922; --warning-bg: rgba(210,153,34,0.15); --info: #58a6ff; --info-bg: rgba(88,166,255,0.15);
+  --input-bg: rgba(0,0,0,0.2); --table-hdr: rgba(0,0,0,0.2); --btn-bg: rgba(255,255,255,0.05); --btn-hover: rgba(255,255,255,0.1);
+  --shadow-sm: 0 4px 6px -1px rgba(0,0,0,0.2); --shadow-md: 0 10px 15px -3px rgba(0,0,0,0.3);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--font-sans); background: var(--bg); color: var(--text);
+  min-height: 100vh; line-height: 1.5;
+
+}
+.wrap { max-width: 1440px; margin: 0 auto; padding: 2rem; }
+.screen { display: none; }
+.screen.active { display: block; animation: fadeIn .4s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+.top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;
+  padding: 1.5rem; background: var(--bg-panel); backdrop-filter: blur(12px); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-md); }
+.title-block h1 { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.25rem; }
+.title-block p { font-size: 0.85rem; color: var(--text-sec); }
+.badge { font-size: 0.75rem; padding: 0.4rem 0.8rem; border-radius: var(--radius-full); font-weight: 600;
+  letter-spacing: 0.05em; text-transform: uppercase; background: var(--info-bg); color: var(--info);
+  border: 1px solid rgba(88,166,255,0.3); }
+
+/* Home */
+.home-shell { max-width:1180px; margin:0 auto; padding:1rem 0 3rem; }
+.home-header { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1rem 0 1.5rem; border-bottom:1px solid var(--border); }
+.home-brand { display:flex; align-items:center; gap:.8rem; }
+.home-mark { width:40px; height:40px; display:grid; place-items:center; background:var(--text); color:var(--bg); border-radius:8px; font-size:.78rem; font-weight:700; }
+.home-brand strong { display:block; font-size:1rem; }
+.home-brand span { display:block; color:var(--text-sec); font-size:.76rem; }
+.home-header-actions { display:flex; align-items:center; gap:.5rem; }
+.icon-btn { width:38px; height:38px; display:grid; place-items:center; border:1px solid var(--border); border-radius:8px; background:var(--bg-panel); color:var(--text); cursor:pointer; }
+.icon-btn:hover { background:var(--btn-hover); border-color:var(--text-muted); }
+.icon-btn svg { width:18px; height:18px; }
+.home-intro { padding:2.25rem 0 1.4rem; display:flex; align-items:flex-end; justify-content:space-between; gap:2rem; }
+.home-intro h1 { font-size:2rem; line-height:1.15; font-weight:650; margin-bottom:.45rem; }
+.home-intro p { color:var(--text-sec); font-size:.92rem; }
+.home-status { display:flex; align-items:center; gap:.45rem; color:var(--text-sec); font-size:.78rem; white-space:nowrap; }
+.status-dot { width:8px; height:8px; border-radius:50%; background:var(--success); box-shadow:0 0 0 3px var(--success-bg); }
+.home-stats { display:grid; grid-template-columns:repeat(3,1fr); border:1px solid var(--border); border-radius:8px; background:var(--bg-panel); margin-bottom:1.25rem; }
+.home-stat { padding:1rem 1.2rem; border-right:1px solid var(--border); }
+.home-stat:last-child { border-right:0; }
+.home-stat span { display:block; color:var(--text-sec); font-size:.74rem; margin-bottom:.25rem; }
+.home-stat strong { font-size:1.2rem; font-weight:650; }
+.home-grid { display:grid; grid-template-columns:minmax(0,1.45fr) minmax(280px,.75fr); gap:1.25rem; align-items:start; }
+.home-section { border-top:1px solid var(--border); padding-top:1rem; }
+.home-section-title { display:flex; align-items:center; justify-content:space-between; margin-bottom:.7rem; }
+.home-section-title h2 { font-size:.82rem; color:var(--text-sec); font-weight:600; text-transform:uppercase; }
+.home-actions { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
+.home-action { min-height:118px; text-align:left; border:1px solid var(--border); border-radius:8px; background:var(--bg-panel); color:var(--text); padding:1rem; cursor:pointer; transition:border-color .18s,background .18s,transform .18s; }
+.home-action:hover { border-color:var(--accent); background:var(--bg-card); transform:translateY(-2px); }
+.home-action.primary { grid-column:1 / -1; min-height:132px; background:var(--text); color:var(--bg); display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:1rem; }
+.home-action-icon { width:38px; height:38px; display:grid; place-items:center; border:1px solid currentColor; border-radius:8px; opacity:.9; }
+.home-action-icon svg { width:19px; height:19px; }
+.home-action strong { display:block; font-size:1rem; margin-bottom:.2rem; }
+.home-action span { display:block; font-size:.78rem; opacity:.68; }
+.home-action .action-arrow { width:18px; height:18px; }
+.recent-list { border:1px solid var(--border); border-radius:8px; background:var(--bg-panel); overflow:hidden; }
+.recent-item { display:grid; grid-template-columns:42px minmax(0,1fr) auto; align-items:center; gap:.75rem; padding:.8rem; border-bottom:1px solid var(--border); }
+.recent-item:last-child { border-bottom:0; }
+.recent-month { width:42px; height:42px; display:grid; place-items:center; background:var(--table-hdr); border-radius:6px; font-size:.7rem; font-weight:700; text-align:center; line-height:1.1; }
+.recent-copy { min-width:0; }
+.recent-copy strong,.recent-copy span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.recent-copy strong { font-size:.84rem; }
+.recent-copy span { color:var(--text-sec); font-size:.72rem; }
+.recent-count { color:var(--text-sec); font-size:.72rem; white-space:nowrap; }
+.home-link { border:0; background:none; color:var(--accent); cursor:pointer; font:inherit; font-size:.78rem; font-weight:600; }
+.home-skeleton { padding:1rem; color:var(--text-sec); font-size:.8rem; }
+@media (max-width:760px) {
+  .wrap { padding:1rem; }
+  .home-intro { align-items:flex-start; flex-direction:column; gap:.75rem; padding:1.5rem 0 1rem; }
+  .home-intro h1 { font-size:1.55rem; }
+  .home-grid { grid-template-columns:1fr; }
+  .home-stats { grid-template-columns:1fr; }
+  .home-stat { border-right:0; border-bottom:1px solid var(--border); }
+  .home-stat:last-child { border-bottom:0; }
+  .home-actions { grid-template-columns:1fr; }
+  .home-action.primary { grid-column:auto; }
+}
+
+/* Upload screen */
+.upload-box { max-width: 600px; margin: 4rem auto; }
+.upload-box h1 { font-size: 1.75rem; font-weight: 700; text-align: center; margin-bottom: 0.5rem; }
+.upload-box p.sub { color: var(--text-sec); text-align: center; margin-bottom: 2rem; }
+.drop-zone { display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 100%; height: 140px; border: 2px dashed var(--accent); background: rgba(255,255,255,0.5);
+  border-radius: var(--radius-lg); cursor: pointer; transition: all 0.2s; }
+.drop-zone:hover { background: rgba(59,130,246,0.05); }
+.drop-zone svg { width: 32px; height: 32px; color: var(--accent); margin-bottom: 0.5rem; }
+.drop-zone p { font-size: 0.9rem; color: var(--text-sec); }
+.drop-zone p strong { color: var(--text); }
+.file-list { margin-bottom: 1.5rem; }
+.file-item { display: flex; align-items: center; justify-content: space-between;
+  background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-md);
+  padding: 0.75rem 1rem; margin-bottom: 0.5rem; }
+.file-item .name { font-size: 0.9rem; font-weight: 500; }
+.file-item .meta { font-size: 0.8rem; color: var(--text-muted); }
+.file-item .del { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; }
+.file-item .del:hover { color: var(--danger); }
+.btn { font-family: var(--font-sans); font-size: 0.9rem; padding: 0.7rem 1.5rem; border-radius: var(--radius-md);
+  border: none; cursor: pointer; font-weight: 600; transition: all 0.2s; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { filter: brightness(1.1); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
+.btn-ghost { background: var(--btn-bg); color: var(--text); border: 1px solid var(--border); }
+.btn-ghost:hover { background: var(--btn-hover); }
+.btn-block { width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
+
+/* Month select */
+.select-box { max-width: 500px; margin: 6rem auto; text-align: center; }
+.select-box h2 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem; }
+.select-box p { color: var(--text-sec); margin-bottom: 2rem; }
+.select-row { display: flex; align-items: flex-end; gap: 1rem; margin-bottom: 2rem; }
+.select-group { flex: 1; text-align: left; }
+.select-group label { font-size: 0.75rem; font-weight: 600; color: var(--text-sec);
+  text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.4rem; }
+.select-group select { width: 100%; font-family: var(--font-sans); font-size: 0.9rem;
+  padding: 0.6rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border);
+  background: var(--input-bg); color: var(--text); outline: none; }
+.select-group select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+.arrow-icon { color: var(--text-muted); margin-bottom: 0.5rem; }
+
+/* Dashboard */
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+.metric { background: var(--bg-card); backdrop-filter: blur(8px); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 1.25rem; box-shadow: var(--shadow-sm); }
+.metric label { font-size: 0.75rem; color: var(--text-sec); text-transform: uppercase;
+  letter-spacing: 0.05em; display: block; margin-bottom: 0.5rem; font-weight: 600; }
+.metric .val { font-size: 1.4rem; font-weight: 600; letter-spacing: 0; }
+.metric .sub { font-size: 0.75rem; margin-top: 0.5rem; font-weight: 500; }
+.up { color: var(--danger); } .down { color: var(--success); } .zero { color: var(--text-muted); }
+
+.summary-section { margin-bottom: 2rem; }
+.summary-section h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; }
+
+.filters { display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center;
+  background: var(--bg-panel); padding: 0.75rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border); }
+.filters select, .filters input { font-family: var(--font-sans); font-size: 0.85rem;
+  padding: 0.4rem 0.6rem; border-radius: var(--radius-sm); border: 1px solid var(--border);
+  background: var(--input-bg); color: var(--text); outline: none; }
+.filters select:focus, .filters input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+.filters button { font-family: var(--font-sans); font-size: 0.85rem; padding: 0.4rem 0.8rem;
+  border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--btn-bg);
+  color: var(--text); cursor: pointer; font-weight: 500; }
+.filters button:hover { background: var(--btn-hover); }
+.filters .label { font-size: 0.8rem; color: var(--text-sec); font-weight: 500; }
+
+.tbl-wrap { width: 100%; overflow-x: auto; background: var(--bg-panel);
+  border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-md); }
+.tbl-wrap::-webkit-scrollbar { height: 8px; }
+.tbl-wrap::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 4px; }
+.tbl-wrap::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+thead tr { background: var(--table-hdr); border-bottom: 1px solid var(--border); }
+thead th { padding: 0.65rem 0.5rem; text-align: left; font-weight: 600; font-size: 0.7rem;
+  color: var(--text-sec); text-transform: uppercase; letter-spacing: 0.05em;
+  white-space: nowrap; cursor: pointer; user-select: none; }
+thead th.r { text-align: right; }
+thead th:hover { color: var(--text); }
+.sort-arrow { margin-left: 2px; opacity: 0.3; }
+.sort-active { color: var(--text); } .sort-active .sort-arrow { opacity: 1; color: var(--accent); }
+tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--bg-hover); }
+td { padding: 0.5rem; color: var(--text); vertical-align: middle; }
+td.r { text-align: right; font-variant-numeric: tabular-nums; }
+td.code { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-sec); }
+td.desc { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+.pill { font-size: 0.65rem; padding: 0.15rem 0.5rem; border-radius: var(--radius-full); font-weight: 700;
+  letter-spacing: 0.05em; display: inline-block; }
+.pill-PA { background: var(--success-bg); color: var(--success); border: 1px solid rgba(63,185,80,0.2); }
+.pill-CO { background: var(--info-bg); color: var(--info); border: 1px solid rgba(88,166,255,0.2); }
+.pill-MP { background: var(--warning-bg); color: var(--warning); border: 1px solid rgba(210,153,34,0.2); }
+.pill-EM { background: rgba(139,148,158,0.15); color: var(--text-sec); border: 1px solid rgba(139,148,158,0.2); }
+.pill-RE { background: var(--danger-bg); color: var(--danger); border: 1px solid rgba(248,81,73,0.2); }
+.pill-AG { background: rgba(188,140,255,0.15); color: #bc8cff; border: 1px solid rgba(188,140,255,0.2); }
+.pill-\?\? { background: rgba(148,163,184,0.15); color: var(--text-sec); border: 1px solid rgba(148,163,184,0.2); }
+.delta { font-size: 0.75rem; font-weight: 600; }
+.pg { display: flex; align-items: center; gap: 1rem; margin-top: 1rem; font-size: 0.85rem;
+  color: var(--text-sec); justify-content: space-between; }
+.pg button { font-family: var(--font-sans); font-size: 0.85rem; padding: 0.4rem 0.8rem;
+  border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--btn-bg);
+  color: var(--text); cursor: pointer; font-weight: 500; }
+.pg button:hover:not(:disabled) { background: var(--btn-hover); }
+.pg button:disabled { opacity: 0.4; cursor: not-allowed; }
+#pg-info { min-width: 100px; text-align: center; font-weight: 500; padding: 0.4rem 0.8rem;
+  background: var(--input-bg); border-radius: var(--radius-sm); }
+.loading { text-align: center; padding: 3rem; color: var(--text-sec); }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.modal { background: var(--bg-panel); backdrop-filter: blur(12px); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 2rem; max-width: 480px; width: 90%; box-shadow: var(--shadow-md); }
+.modal h3 { font-size: 1.1rem; margin-bottom: 0.5rem; }
+.modal p { color: var(--text-sec); font-size: 0.9rem; margin-bottom: 1rem; }
+.share-link-box { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+.share-link-box input { flex: 1; font-family: var(--font-mono); font-size: 0.8rem; padding: 0.5rem;
+  border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--input-bg); color: var(--text); }
+.share-link-box button { font-family: var(--font-sans); font-size: 0.85rem; padding: 0.5rem 1rem;
+  border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--accent); color: #fff; cursor: pointer; font-weight: 600; }
+.share-link-box button:hover { filter: brightness(1.1); }
+.toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%);
+  background: var(--text); color: var(--bg); padding: 0.75rem 1.5rem; border-radius: var(--radius-full);
+  font-size: 0.85rem; font-weight: 500; z-index: 1001; animation: fadeIn .3s ease-out; }
+.hidden-analysis { max-width: 500px; margin: 6rem auto; text-align: center; }
+.month-warning { display:none; margin-top:0.6rem; padding:0.65rem 0.75rem; border:1px solid #d97706; background:rgba(217,119,6,.08); color:#b45309; border-radius:var(--radius-sm); font-size:.82rem; }
+.insights { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:1rem; margin-bottom:1.25rem; }
+.insight-panel { border:1px solid var(--border); background:var(--bg-panel); border-radius:var(--radius-md); overflow:hidden; }
+.insight-panel h3 { font-size:.88rem; padding:.75rem 1rem; border-bottom:1px solid var(--border); }
+.insight-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.75rem; padding:.65rem 1rem; border-bottom:1px solid var(--border); font-size:.82rem; }
+.insight-row:last-child { border-bottom:0; }
+.insight-row strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.manage-toolbar { display:flex; flex-wrap:wrap; gap:.65rem; margin-bottom:1rem; }
+.import-preview { display:none; text-align:left; margin:1rem 0; border:1px solid var(--border); background:var(--bg-panel); border-radius:var(--radius-md); padding:1rem; }
+.import-preview h3 { font-size:.9rem; margin-bottom:.65rem; }
+.preview-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:.65rem; }
+.preview-stat { padding:.6rem; background:var(--table-hdr); border-radius:var(--radius-sm); }
+.preview-stat span { display:block; color:var(--text-sec); font-size:.72rem; }
+.preview-stat strong { font-size:1rem; }
+.quality-list { margin-top:.75rem; font-size:.8rem; color:var(--text-sec); line-height:1.55; }
+.chart-panel { margin-bottom:1.5rem; border:1px solid var(--border); background:var(--bg-panel); border-radius:var(--radius-md); padding:1rem; }
+.chart-panel h3 { font-size:.9rem; margin-bottom:.75rem; }
+.chart-panel canvas { width:100%; height:220px; display:block; }
+@media (max-width:720px) { .insights { grid-template-columns:1fr; } }
+.spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid var(--border);
+  border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; margin-bottom: 0.5rem; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media print { body { background: #fff; } .top-bar .btn, .top-bar .badge, .filters, .pg, .modal-overlay, #btn-share { display: none !important; } .tbl-wrap { box-shadow: none; border: 1px solid #ccc; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <!-- ==================== SCREEN: MENU ==================== -->
+  <div id="screen-menu" class="screen active">
+    <main class="home-shell">
+      <header class="home-header">
+        <div class="home-brand">
+          <div class="home-mark">IMP</div>
+          <div><strong>Implatec</strong><span>Controle de custos</span></div>
+        </div>
+        <div class="home-header-actions">
+          <button class="icon-btn" title="Alternar tema" aria-label="Alternar tema" onclick="toggleTheme()"><i data-lucide="sun-moon"></i></button>
+          <button class="icon-btn" title="Gerenciar inventários" aria-label="Gerenciar inventários" onclick="showManage()"><i data-lucide="settings-2"></i></button>
+        </div>
+      </header>
+
+      <section class="home-intro">
+        <div><h1>Análise de custos de inventário</h1><p>Acompanhe referências mensais e identifique oscilações relevantes.</p></div>
+        <div class="home-status"><span class="status-dot"></span><span id="home-status-text">Conectando ao catálogo</span></div>
+      </section>
+
+      <section class="home-stats" aria-label="Resumo do catálogo">
+        <div class="home-stat"><span>Inventários catalogados</span><strong id="home-inventory-count">–</strong></div>
+        <div class="home-stat"><span>Itens no período mais recente</span><strong id="home-item-count">–</strong></div>
+        <div class="home-stat"><span>Última referência</span><strong id="home-latest-month">–</strong></div>
+      </section>
+
+      <div class="home-grid">
+        <section class="home-section">
+          <div class="home-section-title"><h2>Ações</h2></div>
+          <div class="home-actions">
+            <button class="home-action primary" onclick="showSelect()">
+              <span class="home-action-icon"><i data-lucide="chart-line"></i></span>
+              <span><strong>Comparar períodos</strong><span>Analise oscilações entre dois inventários</span></span>
+              <i class="action-arrow" data-lucide="arrow-right"></i>
+            </button>
+            <button class="home-action" onclick="showUpload()"><span class="home-action-icon"><i data-lucide="file-up"></i></span><strong>Catalogar mês</strong><span>Importar PDF ou CSV</span></button>
+            <button class="home-action" onclick="showManage()"><span class="home-action-icon"><i data-lucide="database"></i></span><strong>Gerenciar dados</strong><span>Backup, substituição e exclusão</span></button>
+          </div>
+        </section>
+
+        <section class="home-section">
+          <div class="home-section-title"><h2>Inventários recentes</h2><button class="home-link" onclick="showManage()">Ver todos</button></div>
+          <div id="home-recent-list" class="recent-list"><div class="home-skeleton">Carregando catálogo...</div></div>
+        </section>
+      </div>
+    </main>
+  </div>
+  <!-- ==================== SCREEN: UPLOAD ==================== -->
+  <div id="screen-upload" class="screen">
+    <div class="upload-box">
+      <h1>Catalogar Inventário</h1>
+      <p class="sub">Faça upload de 1 arquivo de inventário (PDF MOD7 ou CSV).</p>
+
+      <div style="margin-bottom: 1.5rem; text-align: left;">
+        <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem;">Mês de Referência:</label>
+        <input type="month" id="month-input" onchange="checkUploadReady()" style="width: 100%; padding: 0.6rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--input-bg); color: var(--text); font-family: var(--font-sans);">
+        <div id="month-warning" class="month-warning"></div>
+      </div>
+
+      <div id="file-list" class="file-list"></div>
+
+      <div id="import-preview" class="import-preview"></div>
+
+      <div id="drop-zone" class="drop-zone" role="button" tabindex="0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <p><strong>Clique</strong> para selecionar o arquivo</p>
+      </div>
+      <input id="file-input" type="file" accept=".pdf,.csv" style="display:none">
+
+      <div style="display:flex; gap:1rem; margin-top: 2rem;">
+        <button class="btn btn-ghost" style="flex:1" onclick="showMenu()">Voltar</button>
+        <button id="btn-save-catalog" class="btn btn-primary" style="flex:2" disabled onclick="saveInventory()">Salvar no Catálogo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SCREEN: SELECT MONTHS ==================== -->
+  <div id="screen-select" class="screen">
+    <div class="select-box">
+      <h2>Selecionar Períodos</h2>
+      <p>Defina quais meses catalogados você deseja comparar.</p>
+      
+      <div id="select-loading" style="display:none; margin-bottom: 2rem; color: var(--text-sec);">
+        <div class="spinner"></div><br>Carregando catálogo...
+      </div>
+
+      <div class="select-row" id="select-controls">
+        <div class="select-group">
+          <label>Mês 1 (Referência)</label>
+          <select id="sel-mes1"></select>
+        </div>
+        <div class="arrow-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </div>
+        <div class="select-group">
+          <label>Mês 2 (Comparado)</label>
+          <select id="sel-mes2"></select>
+        </div>
+      </div>
+      <p id="select-message" style="display:none; margin:-1rem 0 1.5rem; color:var(--text-sec); font-size:0.9rem;"></p>
+      <div style="display:flex; gap:1rem;" id="select-buttons">
+        <button class="btn btn-ghost" style="flex:1" onclick="showMenu()">Voltar</button>
+        <button id="btn-compare" class="btn btn-primary" style="flex:1" onclick="confirmMonths()">Gerar Comparativo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SCREEN: DASHBOARD ==================== -->
+  <div id="screen-dashboard" class="screen">
+    <div class="top-bar">
+      <div class="title-block">
+        <h1>Comparativo de Inventário — Implatec Perfis Plásticos</h1>
+        <p id="dash-subtitle">Custo Médio &nbsp;·&nbsp; CNPJ 00.716.481/0001-36</p>
+      </div>
+      <div style="display:flex; gap:0.75rem; align-items:center;">
+        <button class="btn btn-ghost" onclick="showMenu()" style="padding:0.4rem 1rem;font-size:0.85rem;">← Menu Inicial</button>
+        <button class="btn btn-ghost" onclick="window.print()" style="padding:0.4rem 1rem;font-size:0.85rem;">Imprimir Relatório</button>
+        <button id="btn-share" class="btn btn-ghost" onclick="shareCurrentAnalysis()" style="padding:0.4rem 1rem;font-size:0.85rem;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+          Compartilhar
+        </button>
+        <button id="theme-toggle" class="badge" style="cursor:pointer;display:flex;align-items:center;gap:6px;background:var(--btn-bg);color:var(--text);border:1px solid var(--border);box-shadow:none;" onclick="toggleTheme()">
+          <span id="theme-icon">🌙 Escuro</span>
+        </button>
+        <span class="badge">Modelo P7</span>
+      </div>
+    </div>
+
+    <div class="metrics" id="metrics"></div>
+
+    <div class="insights" id="oscillation-insights"></div>
+
+    <div class="chart-panel"><h3>Evolução histórica do valor do inventário</h3><canvas id="history-chart" width="1100" height="220"></canvas></div>
+
+    <div class="summary-section">
+      <h3><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Resumo Consolidado por Categoria</h3>
+      <div class="tbl-wrap">
+        <table><thead><tr>
+          <th>Categoria</th><th class="r">Qtd Itens</th><th class="r">Total Mês 1</th><th class="r">Total Mês 2</th><th class="r">Flutuação (R$)</th><th class="r">Flutuação (%)</th>
+        </tr></thead><tbody id="summary-tbody"></tbody><tfoot id="summary-tfoot" style="background:var(--table-hdr);font-weight:600;border-top:1px solid var(--border);"></tfoot></table>
+      </div>
+    </div>
+
+    <div class="filters">
+      <span class="label">Visualização:</span>
+      <select id="filt-view" onchange="applyFilter()"><option value="changed">Só Alterados</option><option value="all">Todos</option></select>
+      <span class="label">Categoria:</span>
+      <select id="filt-cat" onchange="applyFilter()"><option value="">Todas</option><option value="PA">PA</option><option value="CO">CO</option><option value="MP">MP</option><option value="EM">EM</option><option value="AG">AG</option><option value="RE">RE</option></select>
+      <span class="label">Variação:</span>
+      <select id="filt-var" onchange="applyFilter()"><option value="">Todas</option><option value="alta">Custo ↑</option><option value="baixa">Custo ↓</option><option value="zero">Custo =</option></select>
+      <span class="label">Situação:</span>
+      <select id="filt-status" onchange="applyFilter()"><option value="">Todas</option><option value="novo">Novos</option><option value="removido">Removidos</option><option value="existente">Existentes</option></select>
+      <span class="label">Variação mínima:</span>
+      <input type="number" id="filt-min" min="0" step="0.1" placeholder="0%" oninput="applyFilter()" style="width:90px">
+      <input type="text" id="filt-search" placeholder="Buscar..." oninput="applyFilter()" style="width:160px">
+      <button onclick="resetFilter()">Limpar</button>
+      <button onclick="exportCSV()">Exportar CSV</button>
+    </div>
+
+    <div class="tbl-wrap">
+      <table>
+        <colgroup><col style="width:85px"><col style="width:180px"><col style="width:60px">
+          <col style="width:65px"><col style="width:70px"><col style="width:70px">
+          <col style="width:65px"><col style="width:70px"><col style="width:70px">
+          <col style="width:65px"><col style="width:70px"><col style="width:70px">
+          <col style="width:65px"><col style="width:65px"><col style="width:65px">
+        </colgroup>
+        <thead><tr>
+          <th onclick="sortBy('cod')">Código <span class="sort-arrow">↕</span></th>
+          <th onclick="sortBy('desc')">Descrição <span class="sort-arrow">↕</span></th>
+          <th onclick="sortBy('cat')">Cat <span class="sort-arrow">↕</span></th>
+          <th class="r" onclick="sortBy('q1')">Qtd M1 <span class="sort-arrow">↕</span></th>
+          <th class="r" onclick="sortBy('u1')">Unit M1 <span class="sort-arrow">↕</span></th>
+          <th class="r" onclick="sortBy('p1')">Parc M1 <span class="sort-arrow">↕</span></th>
+          <th class="r" onclick="sortBy('q2')">Qtd M2 <span class="sort-arrow">↕</span></th>
+          <th class="r" onclick="sortBy('u2')">Unit M2 <span class="sort-arrow">↕</span></th>
+          <th class="r" onclick="sortBy('p2')">Parc M2 <span class="sort-arrow">↕</span></th>
+          <th class="r" onclick="sortBy('dq')">Δ Qtd <span class="sort-arrow">↕</span></th>
+          <th class="r" onclick="sortBy('du')">Δ Unit <span class="sort-arrow">↕</span></th>
+          <th class="r" onclick="sortBy('dp')">Δ Parc <span class="sort-arrow">↕</span></th>
+          <th class="r" onclick="sortBy('dqp')">Δ% Qtd <span class="sort-arrow">↕</span></th>
+          <th class="r" onclick="sortBy('dup')">Δ% Unit <span class="sort-arrow">↕</span></th>
+          <th class="r" onclick="sortBy('dpp')">Δ% Parc <span class="sort-arrow">↕</span></th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="pg">
+      <span id="pg-total"></span>
+      <div style="display:flex;align-items:center;gap:0.5rem;">
+        <button id="btn-prev" onclick="goPage(-1)">← Anterior</button>
+        <span id="pg-info"></span>
+        <button id="btn-next" onclick="goPage(1)">Próxima →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+  <!-- ==================== SCREEN: MANAGE DATA ==================== -->
+  <div id="screen-manage" class="screen">
+    <div class="upload-box" style="margin-top: 2rem;">
+      <h1>Gerenciar Inventários</h1>
+      <p class="sub">Visualize, substitua ou remova dados catalogados.</p>
+
+      <div id="manage-loading" style="display:none; margin-bottom: 1rem; color: var(--text-sec);">
+        <div class="spinner"></div><br>Carregando...
+      </div>
+
+      <div id="manage-list" style="margin-bottom: 2rem;"></div>
+
+      <div class="manage-toolbar">
+        <button class="btn btn-ghost" onclick="exportBackup()">Exportar Backup</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('backup-input').click()">Restaurar Backup</button>
+        <input id="backup-input" type="file" accept=".json,application/json" style="display:none" onchange="selectBackupFile(event)">
+      </div>
+
+      <div id="manage-actions" style="display:none; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border);">
+        <button class="btn btn-ghost" style="flex:1" onclick="showMenu()">← Voltar</button>
+        <button id="btn-clear-all" class="btn btn-primary" style="background:var(--danger);flex:2" onclick="confirmClearAll()">Excluir Todos os Dados</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL CONFIRM ==================== -->
+  <div id="modal-confirm" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal()">
+    <div class="modal">
+      <h3 id="modal-title">Confirmação</h3>
+      <p id="modal-msg">Tem certeza?</p>
+      <div style="display:flex;gap:0.75rem;justify-content:flex-end;margin-top:1rem;">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+        <button id="modal-confirm-btn" class="btn btn-primary" style="background:var(--danger)" onclick="">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SHARE MODAL ==================== -->
+  <div id="share-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeShareModal()">
+    <div class="modal">
+      <h3>Comparativo Gerado!</h3>
+      <p>Compartilhe o link para acessar diretamente essa visualização:</p>
+      <div class="share-link-box">
+        <input type="text" id="share-link" readonly onclick="this.select()">
+        <button onclick="copyLink()">Copiar</button>
+      </div>
+      <button class="btn btn-ghost btn-block" onclick="closeShareModal()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== STATE ====================
+const CAT_LABEL = {PA:"Produto Acabado",CO:"Composto",MP:"Matéria Prima",EM:"Embalagem",AG:"Agregado",RE:"Refugo","??":"Não Classificado"};
+const CAT_PREFIX = {PA:"01",CO:"03",MP:"04",AG:"05",EM:"06",RE:"11"};
+const REV_PREFIX = Object.fromEntries(Object.entries(CAT_PREFIX).map(([k,v])=>({prefix:v,cat:k})));
+
+let uploadedFile = null; // Apenas 1 arquivo para catalogar
+let inferredUploadMonth = "";
+let uploadDiagnostics = null;
+let pendingMonthMismatch = false;
+let catalogList = []; // Lista de inventários vindos da API
+let currentM1_id = null;
+let currentM2_id = null;
+
+let data = [];
+let filtered = [];
+let sortKey = null, sortDir = 1, page = 0;
+const PER = 25;
+
+const MONTH_NAMES = {
+  janeiro: "01", jan: "01",
+  fevereiro: "02", fev: "02",
+  marco: "03", março: "03", mar: "03",
+  abril: "04", abr: "04",
+  maio: "05", mai: "05",
+  junho: "06", jun: "06",
+  julho: "07", jul: "07",
+  agosto: "08", ago: "08",
+  setembro: "09", set: "09",
+  outubro: "10", out: "10",
+  novembro: "11", nov: "11",
+  dezembro: "12", dez: "12"
+};
+
+function monthYearSortKey(monthYear) {
+  const m = String(monthYear || "").match(/^(\d{1,2})\/(\d{4})$/);
+  return m ? Number(m[2]) * 100 + Number(m[1]) : 0;
+}
+
+function sortCatalogList(list) {
+  return [...(Array.isArray(list) ? list : [])].sort((a, b) =>
+    monthYearSortKey(b.month_year) - monthYearSortKey(a.month_year)
+  );
+}
+
+function inferMonthInputFromFilename(filename) {
+  const base = String(filename || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const numeric = base.match(/(?:^|[^\d])(\d{1,2})[._\-/ ]+(\d{2,4})(?:[^\d]|$)/);
+  if (numeric) {
+    const first = Number(numeric[1]);
+    const second = Number(numeric[2]);
+    if (first >= 1 && first <= 12) {
+      const mm = String(first).padStart(2, "0");
+      const yyyy = numeric[2].length === 2 ? `20${numeric[2]}` : numeric[2];
+      return `${yyyy}-${mm}`;
+    }
+    if (numeric[1].length === 2 && first >= 20 && second >= 1 && second <= 12) {
+      return `20${numeric[1]}-${String(second).padStart(2, "0")}`;
+    }
+  }
+
+  for (const [name, mm] of Object.entries(MONTH_NAMES)) {
+    if (base.includes(name)) {
+      return `${new Date().getFullYear()}-${mm}`;
+    }
+  }
+  return "";
+}
+
+function setSelectMessage(message) {
+  const el = document.getElementById("select-message");
+  if (!el) return;
+  el.style.display = message ? "block" : "none";
+  el.textContent = message || "";
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, ch => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  }[ch]));
+}
+
+function csvCell(value) {
+  const text = String(value ?? "");
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function inlineJson(value) {
+  return escapeHtml(JSON.stringify(String(value ?? "")));
+}
+
+function computeDeltas(r) {
+  const dq = r.q2 - r.q1, du = r.u2 - r.u1, dp = r.p2 - r.p1;
+  const dqp = r.q1 ? ((r.q2 - r.q1) / r.q1) * 100 : null;
+  const dup = r.u1 ? ((r.u2 - r.u1) / r.u1) * 100 : null;
+  const dpp = r.p1 ? ((r.p2 - r.p1) / r.p1) * 100 : null;
+const costImpact = (r.u2 - r.u1) * r.q2;
+  const quantityImpact = (r.q2 - r.q1) * r.u1;
+  return { dq, du, dp, dqp, dup, dpp, costImpact, quantityImpact };
+}
+
+// ==================== THEME ====================
+function toggleTheme() {
+  const cur = document.documentElement.getAttribute("data-theme");
+  const next = cur === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  localStorage.setItem("implatec-theme", next);
+  document.getElementById("theme-icon").textContent = next === "dark" ? "☀️ Claro" : "🌙 Escuro";
+}
+const saved = localStorage.getItem("implatec-theme") || "light";
+document.documentElement.setAttribute("data-theme", saved);
+document.getElementById("theme-icon").textContent = saved === "dark" ? "☀️ Claro" : "🌙 Escuro";
+
+// ==================== NAVIGATION ====================
+function showScreen(id) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+}
+function showMenu() {
+  showScreen("screen-menu");
+  resetUploadState();
+  loadHomeDashboard();
+}
+function showUpload() {
+  showScreen("screen-upload");
+  resetUploadState();
+  
+  // Set current month to input
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  document.getElementById("month-input").value = `${yyyy}-${mm}`;
+  checkUploadReady();
+}
+function showSelect() { 
+  showScreen("screen-select"); 
+  fetchCatalog(); 
+}
+function showDashboard() { showScreen("screen-dashboard"); }
+
+let homeLoadedAt = 0;
+async function loadHomeDashboard(force = false) {
+  if (!force && Date.now() - homeLoadedAt < 30000) return;
+  const status = document.getElementById("home-status-text");
+  const recent = document.getElementById("home-recent-list");
+  if (!status || !recent) return;
+  status.textContent = "Atualizando catálogo";
+
+  try {
+    const res = await fetchWithRetry("/api/list_inventories?include_counts=true");
+    if (!res.ok) throw new Error("Catálogo indisponível");
+    const list = sortCatalogList(await res.json());
+    const latest = list[0];
+    document.getElementById("home-inventory-count").textContent = list.length;
+    document.getElementById("home-item-count").textContent = latest ? Number(latest.item_count || 0).toLocaleString("pt-BR") : "0";
+    document.getElementById("home-latest-month").textContent = latest?.month_year || "Nenhuma";
+    status.textContent = "Catálogo atualizado";
+
+    recent.innerHTML = list.length ? list.slice(0, 4).map(item => {
+      const [month, year] = String(item.month_year || "–/–").split("/");
+      return `<div class="recent-item">
+        <div class="recent-month">${escapeHtml(month)}<br>${escapeHtml(year)}</div>
+        <div class="recent-copy"><strong>${escapeHtml(item.month_year)}</strong><span title="${escapeHtml(item.filename || '')}">${escapeHtml(item.filename || "Sem arquivo")}</span></div>
+        <span class="recent-count">${Number(item.item_count || 0).toLocaleString("pt-BR")} itens</span>
+      </div>`;
+    }).join("") : '<div class="home-skeleton">Nenhum inventário catalogado.</div>';
+    homeLoadedAt = Date.now();
+  } catch (err) {
+    status.textContent = "Falha ao acessar catálogo";
+    recent.innerHTML = `<div class="home-skeleton">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+// ==================== PDF/CSV PARSING ====================
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+function parseBrNumber(str) {
+  if (!str) return 0;
+  return parseFloat(String(str).replace(/\./g, '').replace(',', '.'));
+}
+
+function guessCategory(cod) {
+  for (const [cat, prefix] of Object.entries(CAT_PREFIX)) {
+    if (cod.startsWith(prefix)) return cat;
+  }
+  return '??';
+}
+
+function tryParseLine(line) {
+  const t = line.trim();
+  if (!t) return null;
+
+  // Pattern 1: Pipe-delimited MOD7 com categoria (formato original)
+  // | COD | DESCRICAO | CAT | QTD | UNIT | PARC |
+  let m = t.match(/^\|\s*(?:[0-9A-Z]+\s*)?\|\s*([^|]+)\s*\|\s*([A-Z]+)\s*\|\s*([\d.,]+)\s*\|\s*([\d.,]+)\s*\|\s*([\d.,]+)\s*\|/);
+  if (m) {
+    const full = m[1].trim();
+    const h = full.indexOf('-');
+    return {
+      cod: h !== -1 ? full.substring(0, h).trim() : full,
+      desc: h !== -1 ? full.substring(h + 1).trim() : full,
+      qty: parseBrNumber(m[3]),
+      unitCost: parseBrNumber(m[4]),
+      totalCost: parseBrNumber(m[5])
+    };
+  }
+
+  // Pattern 2: Pipe-delimited sem categoria
+  // | CODIGO | DESCRICAO | QTD | UNIT | PARC |
+  m = t.match(/^\|\s*([\w][\w\-\.]+)\s*\|\s*([^|]+)\s*\|\s*([\d.,]+)\s*\|\s*([\d.,]+)\s*\|\s*([\d.,]+)\s*\|/);
+  if (m) {
+    return {
+      cod: m[1].trim(),
+      desc: m[2].trim(),
+      qty: parseBrNumber(m[3]),
+      unitCost: parseBrNumber(m[4]),
+      totalCost: parseBrNumber(m[5])
+    };
+  }
+
+  // Pattern 3: Espaços delimitados com categoria (ex: "01001-DESCR  PA  123,456  12,34  1523,45")
+  m = t.match(/([\w]+)\s*-\s*([\w\sÀ-ÿ]+?)\s{2,}([A-Z]{2,3})\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s*$/);
+  if (m) {
+    return {
+      cod: m[1].trim(),
+      desc: m[2].trim(),
+      qty: parseBrNumber(m[4]),
+      unitCost: parseBrNumber(m[5]),
+      totalCost: parseBrNumber(m[6])
+    };
+  }
+
+  // Pattern 4: Código + descrição + 3 números no final da linha
+  // (captura o último trio de números como qty, unit, total)
+  m = t.match(/([\w][\w\-\.]+)\s+([\w\sÀ-ÿ]+?)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s*$/);
+  if (m) {
+    return {
+      cod: m[1].trim(),
+      desc: m[2].trim(),
+      qty: parseBrNumber(m[3]),
+      unitCost: parseBrNumber(m[4]),
+      totalCost: parseBrNumber(m[5])
+    };
+  }
+
+  // Pattern 5: Linha começando com código numérico e sem descrição clara
+  // Ex: "01000502  123,456   12,34  1523,45"
+  m = t.match(/^([\d]{5,}[\w]*)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s*$/);
+  if (m) {
+    return {
+      cod: m[1].trim(),
+      desc: m[1].trim(),
+      qty: parseBrNumber(m[2]),
+      unitCost: parseBrNumber(m[3]),
+      totalCost: parseBrNumber(m[4])
+    };
+  }
+
+  return null;
+}
+
+async function extractFromPdf(file, onProgress) {
+  const ab = await file.arrayBuffer();
+  const doc = await pdfjsLib.getDocument(ab).promise;
+  const allItems = [];
+  const seen = new Set();
+  for (let p = 1; p <= doc.numPages; p++) {
+    if (onProgress) onProgress(p, doc.numPages);
+    const page = await doc.getPage(p);
+    const tc = await page.getTextContent();
+    const rows = new Map();
+    tc.items.forEach(item => {
+      const y = item.transform[5].toFixed(1);
+      if (!rows.has(y)) rows.set(y, []);
+      rows.get(y).push(item);
+    });
+    const sortedY = Array.from(rows.keys()).sort((a, b) => parseFloat(b) - parseFloat(a));
+    for (const y of sortedY) {
+      const items = rows.get(y).sort((a, b) => a.transform[4] - b.transform[4]);
+      const line = items.map(i => i.str).join(' ');
+      const parsed = tryParseLine(line);
+      if (!parsed) continue;
+      if (seen.has(parsed.cod)) continue;
+      seen.add(parsed.cod);
+      allItems.push({
+        cod: parsed.cod,
+        desc: parsed.desc,
+        cat: '',
+        qty: parsed.qty,
+        unitCost: parsed.unitCost,
+        totalCost: parsed.totalCost
+      });
+    }
+  }
+  return allItems;
+}
+
+async function extractFromCsv(file) {
+  return new Promise((resolve, reject) => {
+    Papa.parse(file, {
+      header: true, complete: r => resolve(r.data),
+      error: reject
+    });
+  });
+}
+
+async function processFile(file, onProgress) {
+  if (file.name.endsWith('.pdf')) {
+    const items = await extractFromPdf(file, onProgress);
+    items.forEach(i => { if (!i.cat) i.cat = guessCategory(i.cod); });
+    return { name: file.name, items };
+  }
+  if (file.name.endsWith('.csv')) {
+    const items = await extractFromCsv(file);
+    items.forEach(i => { if (!i.cat) i.cat = guessCategory(i.cod); });
+    return { name: file.name, items };
+  }
+  return null;
+}
+
+function analyzeImportedItems(items) {
+  const seen = new Set();
+  const duplicateCodes = new Set();
+  let missingCode = 0, missingDescription = 0, zeroCost = 0, negativeValues = 0;
+
+  items.forEach(item => {
+    const code = String(item.cod || "").trim();
+    if (!code) missingCode++;
+    else if (seen.has(code)) duplicateCodes.add(code);
+    else seen.add(code);
+    if (!String(item.desc || "").trim()) missingDescription++;
+    if (Number(item.unitCost || 0) === 0) zeroCost++;
+    if ([item.qty, item.unitCost, item.totalCost].some(value => Number(value || 0) < 0)) negativeValues++;
+  });
+
+  return {
+    total: items.length,
+    validCodes: seen.size,
+    duplicateCodes: duplicateCodes.size,
+    missingCode,
+    missingDescription,
+    zeroCost,
+    negativeValues,
+    hasWarnings: duplicateCodes.size + missingCode + missingDescription + zeroCost + negativeValues > 0
+  };
+}
+
+function renderImportPreview() {
+  const el = document.getElementById("import-preview");
+  if (!uploadedFile || !uploadDiagnostics) {
+    el.style.display = "none";
+    el.innerHTML = "";
+    return;
+  }
+  const d = uploadDiagnostics;
+  const warnings = [
+    d.duplicateCodes && `${d.duplicateCodes} código(s) duplicado(s)`,
+    d.missingCode && `${d.missingCode} item(ns) sem código`,
+    d.missingDescription && `${d.missingDescription} item(ns) sem descrição`,
+    d.zeroCost && `${d.zeroCost} item(ns) com custo unitário zerado`,
+    d.negativeValues && `${d.negativeValues} item(ns) com valor negativo`
+  ].filter(Boolean);
+  el.style.display = "block";
+  el.innerHTML = `<h3>Pré-visualização da importação</h3>
+    <div class="preview-grid">
+      <div class="preview-stat"><span>Arquivo</span><strong>${escapeHtml(uploadedFile.name)}</strong></div>
+      <div class="preview-stat"><span>Itens lidos</span><strong>${d.total}</strong></div>
+      <div class="preview-stat"><span>Códigos únicos</span><strong>${d.validCodes}</strong></div>
+      <div class="preview-stat"><span>Alertas</span><strong class="${warnings.length ? 'up' : 'down'}">${warnings.length}</strong></div>
+    </div>
+    <div class="quality-list">${warnings.length ? warnings.map(w => `• ${escapeHtml(w)}`).join("<br>") : "Nenhuma inconsistência estrutural encontrada."}</div>`;
+}
+// ==================== UPLOAD UI ====================
+function resetUploadState() {
+  uploadedFile = null;
+  inferredUploadMonth = "";
+  uploadDiagnostics = null;
+  pendingMonthMismatch = false;
+  pendingOverwrite = null;
+  document.getElementById("file-input").value = '';
+  document.getElementById("file-list").innerHTML = '';
+  renderImportPreview();
+  checkUploadReady();
+}
+
+document.getElementById("file-input").addEventListener("change", async e => {
+  const files = Array.from(e.target.files);
+  if (!files.length) return;
+  // Só manter o último arquivo selecionado
+  await addFile(files[0]);
+  e.target.value = '';
+});
+
+document.getElementById("drop-zone").addEventListener("click", () => {
+  document.getElementById("file-input").click();
+});
+
+const dropZone = document.getElementById("drop-zone");
+dropZone.addEventListener("dragover", e => {
+  e.preventDefault();
+  dropZone.style.borderColor = "var(--success)";
+  dropZone.style.background = "rgba(16,185,129,0.08)";
+});
+dropZone.addEventListener("dragleave", () => {
+  dropZone.style.borderColor = "";
+  dropZone.style.background = "";
+});
+dropZone.addEventListener("drop", e => {
+  e.preventDefault();
+  dropZone.style.borderColor = "";
+  dropZone.style.background = "";
+  const files = Array.from(e.dataTransfer.files);
+  if(files.length > 0) addFile(files[0]);
+});
+
+async function addFile(file) {
+  const list = document.getElementById("file-list");
+  list.innerHTML = '';
+  
+  const item = document.createElement("div");
+  item.className = "file-item";
+  item.innerHTML = `<span class="name">${escapeHtml(file.name)}</span><span class="meta">Processando...</span>`;
+  list.appendChild(item);
+  const meta = item.querySelector(".meta");
+
+  try {
+    const result = await processFile(file, (p, total) => {
+      if (meta) meta.textContent = `Pagina ${p} de ${total}...`;
+    });
+    if (result) {
+      uploadedFile = result;
+      uploadDiagnostics = analyzeImportedItems(result.items);
+      const inferredMonth = inferMonthInputFromFilename(result.name);
+      inferredUploadMonth = inferredMonth;
+      const monthInput = document.getElementById("month-input");
+      if (inferredMonth && monthInput.value !== inferredMonth) {
+        monthInput.value = inferredMonth;
+        showToast(`Mês sugerido pelo arquivo: ${inferredMonth.slice(5)}/${inferredMonth.slice(0, 4)}`);
+      }
+      item.innerHTML = `<span class="name">${escapeHtml(result.name)}</span><span class="meta">${result.items.length} itens</span>
+        <button class="del" onclick="resetUploadState()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>`;
+    }
+  } catch(err) {
+    uploadedFile = null;
+    item.innerHTML = `<span class="name">${escapeHtml(file.name)}</span><span class="meta" style="color:var(--danger)">Erro ao processar</span>`;
+    console.error(err);
+  }
+  renderImportPreview();
+  checkUploadReady();
+}
+
+function checkUploadReady() {
+  const monthInput = document.getElementById("month-input");
+  const warning = document.getElementById("month-warning");
+  const hasMonth = !!monthInput.value;
+  const hasFile = !!uploadedFile;
+  const mismatch = hasFile && inferredUploadMonth && monthInput.value !== inferredUploadMonth;
+  warning.style.display = mismatch ? "block" : "none";
+  warning.textContent = mismatch
+    ? `Atenção: o arquivo sugere ${inferredUploadMonth.slice(5)}/${inferredUploadMonth.slice(0, 4)}, mas o mês selecionado é ${monthInput.value.slice(5)}/${monthInput.value.slice(0, 4)}.`
+    : "";
+  document.getElementById("btn-save-catalog").disabled = !(hasMonth && hasFile);
+}
+
+let pendingOverwrite = null;
+
+async function saveInventory() {
+  const btn = document.getElementById("btn-save-catalog");
+  const monthRaw = document.getElementById("month-input").value;
+  if(!uploadedFile || !monthRaw) return;
+  
+  const [yyyy, mm] = monthRaw.split('-');
+  const month_year = `${mm}/${yyyy}`;
+
+  if (inferredUploadMonth && monthRaw !== inferredUploadMonth && !pendingMonthMismatch) {
+    showConfirm(
+      "Confirmar mês de referência",
+      `O arquivo sugere ${inferredUploadMonth.slice(5)}/${inferredUploadMonth.slice(0, 4)}, mas será salvo como ${month_year}. Confirma esta referência?`,
+      "Confirmar mês",
+      () => { pendingMonthMismatch = true; saveInventory(); },
+      false
+    );
+    return;
+  }
+
+  // Se já existe inventário para este mês, pedir confirmação
+  if (!pendingOverwrite) {
+    try {
+      const res = await fetchWithRetry("/api/list_inventories");
+      const list = await res.json();
+      const existing = list.find(f => f.month_year === month_year);
+      if (existing) {
+        showConfirm(
+          "Mês já catalogado",
+          `Já existe um inventário para ${month_year} (${existing.filename || 'sem arquivo'}). Deseja substituí-lo?`,
+          "Substituir",
+          () => {
+            pendingOverwrite = true;
+            saveInventory();
+          },
+          false
+        );
+        return;
+      }
+    } catch(e) {
+      // Se falhou ao verificar, tenta salvar direto (a API retorna erro se existir)
+    }
+  }
+
+  btn.disabled = true; btn.textContent = "Salvando...";
+  try {
+    const res = await fetchWithRetry("/api/save_inventory", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        month_year,
+        filename: uploadedFile.name,
+        data: uploadedFile.items,
+        overwrite: !!pendingOverwrite
+      })
+    });
+const result = await res.json();
+    if (res.status === 409 && !pendingOverwrite) {
+      btn.disabled = false; btn.textContent = "Salvar no Catálogo";
+      showConfirm("Mês já catalogado", `Já existe um inventário para ${month_year}. Deseja substituir o cadastro existente?`, "Substituir", () => {
+        pendingOverwrite = true;
+        saveInventory();
+      }, false);
+      return;
+    }
+    pendingOverwrite = null;
+    if (result.id) {
+      showToast("Mês catalogado com sucesso!");
+      setTimeout(() => showMenu(), 1500);
+    }
+    else {
+      showToast("Erro: " + (result.error || "desconhecido"));
+    }
+  } catch(e) {
+    pendingOverwrite = null;
+    showToast("Erro de conexão ao salvar");
+  }
+  btn.disabled = false; btn.textContent = "Salvar no Catálogo";
+}
+
+// ==================== SELECT MONTHS ====================
+async function fetchCatalog() {
+  document.getElementById("select-loading").style.display = "block";
+  document.getElementById("select-controls").style.display = "none";
+  document.getElementById("btn-compare").disabled = true;
+  setSelectMessage("");
+
+  try {
+    const res = await fetchWithRetry("/api/list_inventories");
+    catalogList = sortCatalogList(await res.json());
+    if (res.ok && catalogList.length > 0) {
+      populateSelects();
+      document.getElementById("select-controls").style.display = "flex";
+      document.getElementById("btn-compare").disabled = catalogList.length < 2;
+      if (catalogList.length < 2) {
+        setSelectMessage("Você precisa catalogar pelo menos dois meses para gerar a comparação de oscilação.");
+      }
+    } else {
+      document.getElementById("select-loading").innerHTML = "Nenhum inventário catalogado ainda.<br><br><button class='btn btn-ghost' onclick='showUpload()'>Catalogar Primeiro Mês</button>";
+      return;
+    }
+  } catch(e) {
+    document.getElementById("select-loading").textContent = "Erro ao carregar o catálogo.";
+  }
+  document.getElementById("select-loading").style.display = "none";
+}
+
+function populateSelects() {
+  const s1 = document.getElementById("sel-mes1");
+  const s2 = document.getElementById("sel-mes2");
+  s1.innerHTML = ''; s2.innerHTML = '';
+  
+  catalogList.forEach(f => {
+    s1.innerHTML += `<option value="${f.id}">${f.month_year}</option>`;
+    s2.innerHTML += `<option value="${f.id}">${f.month_year}</option>`;
+  });
+  
+  if (catalogList.length > 1) {
+    s1.value = catalogList[1].id; // Mês anterior
+    s2.value = catalogList[0].id; // Mês atual
+  } else if (catalogList.length === 1) {
+    s1.value = catalogList[0].id;
+    s2.value = catalogList[0].id;
+  }
+}
+
+// ==================== CROSS FILES & API FETCH ====================
+function crossFiles(m1Data, m2Data) {
+  const map1 = new Map(m1Data.map(i => [i.cod, i]));
+  const map2 = new Map(m2Data.map(i => [i.cod, i]));
+  const all = new Set([...map1.keys(), ...map2.keys()]);
+  const merged = [];
+  for (const cod of all) {
+    if (!cod) continue;
+    const a = map1.get(cod) || { qty: 0, unitCost: 0, totalCost: 0, cat: '', desc: '' };
+    const b = map2.get(cod) || { qty: 0, unitCost: 0, totalCost: 0, cat: '', desc: '' };
+    merged.push({
+      cod, desc: a.desc || b.desc, cat: a.cat || b.cat,
+      q1: a.qty, u1: a.unitCost, p1: a.totalCost,
+      q2: b.qty, u2: b.unitCost, p2: b.totalCost
+    });
+  }
+  return merged;
+}
+
+async function confirmMonths() {
+  const id1 = document.getElementById("sel-mes1").value;
+  const id2 = document.getElementById("sel-mes2").value;
+  
+  if (!id1 || !id2) return;
+  if (id1 === id2) {
+    showToast("Selecione dois meses diferentes para comparar.");
+    return;
+  }
+  await loadAndCompare(id1, id2);
+}
+
+async function loadAndCompare(id1, id2) {
+  const btn = document.getElementById("btn-compare");
+  if(btn) { btn.disabled = true; btn.textContent = "Baixando dados..."; }
+  
+  showDashboard();
+  document.getElementById("metrics").innerHTML = '<div class="loading"><div class="spinner"></div><p>Buscando dados no banco...</p></div>';
+  
+  try {
+    const [res1, res2] = await Promise.all([
+      fetchWithRetry(`/api/get_inventory?id=${encodeURIComponent(id1)}`),
+      fetchWithRetry(`/api/get_inventory?id=${encodeURIComponent(id2)}`)
+    ]);
+    
+    if(!res1.ok || !res2.ok) throw new Error("Erro ao buscar dados dos meses");
+    
+    const inv1 = await res1.json();
+    const inv2 = await res2.json();
+    
+    currentM1_id = inv1.id;
+    currentM2_id = inv2.id;
+    
+    const merged = crossFiles(inv1.data, inv2.data);
+    data = merged.map(r => ({ ...r, ...computeDeltas(r) }));
+    
+    document.getElementById("dash-subtitle").textContent =
+      `${inv1.month_year} vs ${inv2.month_year} · Custo Médio`;
+      
+    renderMetrics();
+    renderInsights();
+    renderSummary();
+    renderHistoryChart();
+    applyFilter();
+    
+  } catch(e) {
+    document.getElementById("metrics").innerHTML = `<div style="text-align:center;padding:3rem;color:var(--danger)"><p>${e.message}</p><button class="btn btn-primary mt-4" onclick="showSelect()">← Voltar</button></div>`;
+  }
+  
+  if(btn) { btn.disabled = false; btn.textContent = "Gerar Comparativo"; }
+}
+
+// ==================== DASHBOARD RENDERING ====================
+function fmt(v, dec = 2) {
+  if (v == null || isNaN(v)) return "–";
+  return v.toLocaleString("pt-BR", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+}
+function fmtR(v, dec = 2) {
+  if (v == null || isNaN(v)) return "–";
+  let s = v.toLocaleString("pt-BR", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  return v > 0 ? "+" + s : s;
+}
+function pct(a, b) { if (!a || a === 0) return null; return ((b - a) / a) * 100; }
+function deltaClass(v, isQty = false) {
+  if (v == null || v === 0) return "zero";
+  if (isQty) return v > 0 ? "up" : "down";
+  return v > 0 ? "up" : "down";
+}
+
+function renderMetrics() {
+  const tot1 = data.reduce((s, r) => s + r.p1, 0);
+  const tot2 = data.reduce((s, r) => s + r.p2, 0);
+  const delta = tot2 - tot1;
+  const deltaP = pct(tot1, tot2);
+  const alta = data.filter(r => r.du > 0).length;
+  const baixa = data.filter(r => r.du < 0).length;
+  const novos = data.filter(r => r.q1 === 0 && r.q2 > 0).length;
+  const removidos = data.filter(r => r.q2 === 0 && r.q1 > 0).length;
+  const costImpact = data.reduce((sum, r) => sum + r.costImpact, 0);
+  const quantityImpact = data.reduce((sum, r) => sum + r.quantityImpact, 0);
+
+  const arrowUp = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>';
+  const arrowDn = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>';
+
+  document.getElementById("metrics").innerHTML = `
+    <div class="metric"><label>Total de Itens</label><div class="val">${data.length}</div></div>
+    <div class="metric"><label>Total Mês 1</label><div class="val">R$ ${fmt(tot1)}</div></div>
+    <div class="metric"><label>Total Mês 2</label><div class="val">R$ ${fmt(tot2)}</div>
+      <div class="sub ${deltaClass(delta)}">${delta > 0 ? arrowUp : (delta < 0 ? arrowDn : '')} R$ ${fmt(Math.abs(delta))} ${deltaP != null ? `(${deltaP >= 0 ? '+' : ''}${fmt(deltaP, 1)}%)` : ''}</div>
+    </div>
+    <div class="metric"><label>↑ Custo Subiu</label><div class="val up">${alta} itens</div></div>
+    <div class="metric"><label>↓ Custo Baixou</label><div class="val down">${baixa} itens</div></div>
+    <div class="metric"><label>Novos (Mês 2)</label><div class="val">${novos}</div></div>
+    <div class="metric"><label>Removidos</label><div class="val">${removidos}</div></div>
+    <div class="metric"><label>Impacto do Custo</label><div class="val ${deltaClass(costImpact)}">R$ ${fmtR(costImpact)}</div></div>
+    <div class="metric"><label>Impacto da Quantidade</label><div class="val ${deltaClass(quantityImpact)}">R$ ${fmtR(quantityImpact)}</div></div>`;
+}
+
+function renderInsights() {
+  const eligible = data.filter(r => r.u1 > 0 && r.u2 > 0 && r.dup != null);
+  const rises = [...eligible].filter(r => r.dup > 0).sort((a, b) => b.dup - a.dup).slice(0, 5);
+  const falls = [...eligible].filter(r => r.dup < 0).sort((a, b) => a.dup - b.dup).slice(0, 5);
+  const impacts = [...eligible].sort((a, b) => Math.abs(b.costImpact) - Math.abs(a.costImpact)).slice(0, 5);
+  const anomalies = data.filter(r => r.u1 < 0 || r.u2 < 0 || r.u1 === 0 || r.u2 === 0 || (r.dup != null && Math.abs(r.dup) >= 50)).slice(0, 5);
+  const panel = (title, rows, value, cls) => `<div class="insight-panel"><h3>${title}</h3>${rows.length
+    ? rows.map(r => `<div class="insight-row"><strong title="${escapeHtml(r.desc)}">${escapeHtml(r.cod)} · ${escapeHtml(r.desc)}</strong><span class="delta ${typeof cls === 'function' ? cls(r) : cls}">${value(r)}</span></div>`).join("")
+    : '<div class="insight-row"><span>Nenhum item encontrado</span></div>'}</div>`;
+  document.getElementById("oscillation-insights").innerHTML =
+    panel("Maiores aumentos unitários", rises, r => `${fmtR(r.dup, 1)}%`, "up") +
+    panel("Maiores reduções unitárias", falls, r => `${fmtR(r.dup, 1)}%`, "down") +
+    panel("Maior impacto financeiro", impacts, r => `R$ ${fmtR(r.costImpact)}`, r => deltaClass(r.costImpact)) +
+    panel("Anomalias para revisão", anomalies, r => r.dup == null ? "Custo zerado" : `${fmtR(r.dup, 1)}%`, "up");
+}
+
+async function renderHistoryChart() {
+  const canvas = document.getElementById("history-chart");
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  try {
+    const res = await fetchWithRetry("/api/history");
+    if (!res.ok) throw new Error("Histórico indisponível");
+    const history = await res.json();
+    if (!history.length) throw new Error("Sem dados históricos");
+
+    const pad = { left: 70, right: 25, top: 20, bottom: 38 };
+    const width = canvas.width - pad.left - pad.right;
+    const height = canvas.height - pad.top - pad.bottom;
+    const max = Math.max(...history.map(item => item.total_cost), 1);
+    const step = width / Math.max(history.length - 1, 1);
+    const styles = getComputedStyle(document.documentElement);
+    const accent = styles.getPropertyValue("--accent").trim() || "#2563eb";
+    const textColor = styles.getPropertyValue("--text-sec").trim() || "#64748b";
+
+    ctx.strokeStyle = accent; ctx.lineWidth = 3; ctx.beginPath();
+    history.forEach((item, index) => {
+      const x = pad.left + index * step;
+      const y = pad.top + height - (item.total_cost / max) * height;
+      index ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    });
+    ctx.stroke();
+    ctx.fillStyle = textColor; ctx.font = "12px sans-serif"; ctx.textAlign = "center";
+    history.forEach((item, index) => {
+      const x = pad.left + index * step;
+      const y = pad.top + height - (item.total_cost / max) * height;
+      ctx.fillStyle = accent; ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = textColor; ctx.fillText(item.month_year, x, canvas.height - 12);
+    });
+    ctx.textAlign = "right";
+    ctx.fillText(`R$ ${fmt(max, 0)}`, pad.left - 8, pad.top + 4);
+    ctx.fillText("R$ 0", pad.left - 8, pad.top + height);
+  } catch (err) {
+    ctx.fillStyle = "#64748b"; ctx.font = "14px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText(err.message, canvas.width / 2, canvas.height / 2);
+  }
+}
+function renderSummary() {
+  const summary = {};
+  Object.keys(CAT_LABEL).forEach(k => { summary[k] = { count: 0, p1: 0, p2: 0 }; });
+  data.forEach(r => { if (summary[r.cat]) { summary[r.cat].count++; summary[r.cat].p1 += r.p1; summary[r.cat].p2 += r.p2; } });
+  let html = '', t1 = 0, t2 = 0, tc = 0;
+  Object.keys(CAT_LABEL).forEach(k => {
+    const s = summary[k];
+    if (!s.count) return;
+    tc += s.count; t1 += s.p1; t2 += s.p2;
+    const dp = s.p2 - s.p1, dpp = pct(s.p1, s.p2);
+    html += `<tr><td><span class="pill pill-${k}">${CAT_LABEL[k]}</span></td><td class="r">${s.count}</td>
+      <td class="r">R$ ${fmt(s.p1)}</td><td class="r">R$ ${fmt(s.p2)}</td>
+      <td class="r"><span class="delta ${deltaClass(dp)}">${fmtR(dp)}</span></td>
+      <td class="r"><span class="delta ${deltaClass(dpp)}">${dpp != null ? fmtR(dpp, 1) + '%' : '–'}</span></td></tr>`;
+  });
+  document.getElementById("summary-tbody").innerHTML = html;
+  const dp = t2 - t1, dpp = pct(t1, t2);
+  document.getElementById("summary-tfoot").innerHTML =
+    `<tr><td style="padding:0.75rem;text-transform:uppercase;">Total Geral</td><td class="r" style="padding:0.75rem;">${tc}</td>
+      <td class="r" style="padding:0.75rem;">R$ ${fmt(t1)}</td><td class="r" style="padding:0.75rem;">R$ ${fmt(t2)}</td>
+      <td class="r" style="padding:0.75rem;"><span class="delta ${deltaClass(dp)}">${fmtR(dp)}</span></td>
+      <td class="r" style="padding:0.75rem;"><span class="delta ${deltaClass(dpp)}">${dpp != null ? fmtR(dpp, 1) + '%' : '–'}</span></td></tr>`;
+}
+
+function applyFilter() {
+  const cat = document.getElementById("filt-cat").value;
+  const varv = document.getElementById("filt-var").value;
+  const view = document.getElementById("filt-view").value;
+  const status = document.getElementById("filt-status").value;
+  const minVariation = Math.max(0, Number(document.getElementById("filt-min").value) || 0);
+  const srch = document.getElementById("filt-search").value.toLowerCase();
+  filtered = data.filter(r => {
+    if (view === "changed" && r.dq === 0 && r.du === 0 && r.dp === 0) return false;
+    if (cat && r.cat !== cat) return false;
+    if (varv === "alta" && r.du <= 0) return false;
+    if (varv === "baixa" && r.du >= 0) return false;
+    if (varv === "zero" && r.du !== 0) return false;
+    if (status === "novo" && !(r.q1 === 0 && r.q2 > 0)) return false;
+    if (status === "removido" && !(r.q1 > 0 && r.q2 === 0)) return false;
+    if (status === "existente" && !(r.q1 > 0 && r.q2 > 0)) return false;
+    if (minVariation > 0 && (r.dup == null || Math.abs(r.dup) < minVariation)) return false;
+    if (srch && !r.cod.toLowerCase().includes(srch) && !r.desc.toLowerCase().includes(srch)) return false;
+    return true;
+  });
+  if (sortKey) doSort(sortKey);
+  page = 0;
+  render();
+}
+
+function resetFilter() {
+  document.getElementById("filt-cat").value = "";
+  document.getElementById("filt-var").value = "";
+  document.getElementById("filt-view").value = "changed";
+  document.getElementById("filt-status").value = "";
+  document.getElementById("filt-min").value = "";
+  document.getElementById("filt-search").value = "";
+  applyFilter();
+}
+
+function sortBy(k) {
+  if (sortKey === k) sortDir *= -1; else { sortKey = k; sortDir = 1; }
+  doSort(k);
+  render();
+}
+
+function doSort(k) {
+  filtered.sort((a, b) => {
+    let av = a[k], bv = b[k];
+    if (av == null) av = -Infinity;
+    if (bv == null) bv = -Infinity;
+    return typeof av === "string" ? av.localeCompare(bv) * sortDir : (av - bv) * sortDir;
+  });
+}
+
+function goPage(d) { page += d; render(); }
+
+function render() {
+  const total = filtered.length;
+  const pages = Math.ceil(total / PER) || 1;
+  if (page >= pages) page = pages - 1;
+  const slice = filtered.slice(page * PER, (page + 1) * PER);
+
+  if (total === 0) {
+    document.getElementById("tbody").innerHTML = '<tr><td colspan="15" style="text-align:center;padding:2rem;color:var(--text-sec)">Nenhum item encontrado</td></tr>';
+    document.getElementById("pg-info").textContent = "Página 0 de 0";
+    document.getElementById("pg-total").textContent = "0 registros";
+    document.getElementById("btn-prev").disabled = true;
+    document.getElementById("btn-next").disabled = true;
+    return;
+  }
+
+  const rows = slice.map(r => {
+    const cat = CAT_LABEL[r.cat] ? r.cat : "??";
+    return `
+    <tr>
+      <td class="code">${escapeHtml(r.cod)}</td>
+      <td class="desc" title="${escapeHtml(r.desc)}">${escapeHtml(r.desc)}</td>
+      <td><span class="pill pill-${cat}">${escapeHtml(cat)}</span></td>
+      <td class="r">${fmt(r.q1, 3)}</td>
+      <td class="r">${fmt(r.u1)}</td>
+      <td class="r">${fmt(r.p1)}</td>
+      <td class="r">${fmt(r.q2, 3)}</td>
+      <td class="r">${fmt(r.u2)}</td>
+      <td class="r">${fmt(r.p2)}</td>
+      <td class="r"><span class="delta ${deltaClass(r.dq, true)}">${fmtR(r.dq, 3)}</span></td>
+      <td class="r"><span class="delta ${deltaClass(r.du)}">${fmtR(r.du)}</span></td>
+      <td class="r"><span class="delta ${deltaClass(r.dp)}">${fmtR(r.dp)}</span></td>
+      <td class="r"><span class="delta ${deltaClass(r.dqp, true)}">${r.dqp != null ? fmtR(r.dqp, 1) + '%' : '–'}</span></td>
+      <td class="r"><span class="delta ${deltaClass(r.dup)}">${r.dup != null ? fmtR(r.dup, 1) + '%' : '–'}</span></td>
+      <td class="r"><span class="delta ${deltaClass(r.dpp)}">${r.dpp != null ? fmtR(r.dpp, 1) + '%' : '–'}</span></td>
+    </tr>`;
+  }).join("");
+
+  document.getElementById("tbody").innerHTML = rows;
+  document.getElementById("pg-info").textContent = `Página ${page + 1} de ${pages}`;
+  document.getElementById("pg-total").textContent = `${total} registros encontrados`;
+  document.getElementById("btn-prev").disabled = page === 0;
+  document.getElementById("btn-next").disabled = page >= pages - 1;
+}
+
+function exportCSV() {
+  const h = "Codigo,Descricao,Categoria,Qtd M1,Unit M1,Parc M1,Qtd M2,Unit M2,Parc M2,Delta Qtd,Delta Unit,Delta Parc";
+  const rows = filtered.map(r =>
+    [r.cod, r.desc, r.cat, r.q1, r.u1, r.p1, r.q2, r.u2, r.p2, r.dq, r.du, r.dp].map(csvCell).join(",")
+  );
+  const blob = new Blob(["\uFEFF" + h + "\n" + rows.join("\n")], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "comparativo.csv"; a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ==================== MANAGE DATA ====================
+let manageCallback = null;
+
+function showManage() {
+  showScreen("screen-manage");
+  document.getElementById("manage-actions").style.display = "none";
+  loadManageList();
+}
+
+function closeModal() {
+  document.getElementById("modal-confirm").style.display = "none";
+  manageCallback = null;
+}
+
+function showConfirm(title, msg, btnText, callback, isDestructive = true) {
+  document.getElementById("modal-title").textContent = title;
+  document.getElementById("modal-msg").textContent = msg;
+  const btn = document.getElementById("modal-confirm-btn");
+  btn.textContent = btnText;
+  btn.style.background = isDestructive ? 'var(--danger)' : 'var(--accent)';
+  btn.onclick = function() {
+    closeModal();
+    if (callback) callback();
+  };
+  document.getElementById("modal-confirm").style.display = "flex";
+}
+
+async function loadManageList() {
+  const el = document.getElementById("manage-list");
+  const loading = document.getElementById("manage-loading");
+  loading.style.display = "block";
+  el.innerHTML = "";
+  document.getElementById("manage-actions").style.display = "none";
+
+  try {
+    const res = await fetchWithRetry("/api/list_inventories?include_counts=true");
+    const list = await res.json();
+    loading.style.display = "none";
+
+    if (!res.ok || list.length === 0) {
+      el.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-sec)">Nenhum inventário catalogado.</div>';
+      return;
+    }
+
+    document.getElementById("manage-actions").style.display = "flex";
+    let html = '<div style="display:flex;flex-direction:column;gap:0.5rem;">';
+    list.forEach(f => {
+      html += `<div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius-md);padding:0.75rem 1rem;">
+        <div><strong>${escapeHtml(f.month_year)}</strong><br><span style="font-size:0.8rem;color:var(--text-sec)">${escapeHtml(f.filename || 'sem arquivo')} · ${Number(f.item_count || 0)} itens</span></div>
+        <button class="btn btn-ghost" style="padding:0.3rem 0.8rem;font-size:0.8rem;background:var(--danger-bg);color:var(--danger);border-color:transparent;" onclick='confirmDelete(${inlineJson(f.id)}, ${inlineJson(f.month_year)})'>Excluir</button>
+      </div>`;
+    });
+    html += '</div>';
+    el.innerHTML = html;
+  } catch(e) {
+    loading.style.display = "none";
+    el.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--danger)">Erro ao carregar lista.</div>';
+  }
+}
+
+function confirmDelete(id, monthYear) {
+  showConfirm(
+    "Excluir Inventário",
+    `Remover o inventário de ${monthYear}? Esta ação não pode ser desfeita.`,
+    "Excluir",
+    () => deleteInventory(id)
+  );
+}
+
+async function deleteInventory(id) {
+  try {
+    const res = await fetchWithRetry(`/api/delete_inventory?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (res.ok) {
+      showToast("Inventário removido!");
+      loadManageList();
+    } else {
+      const err = await res.json();
+      showToast("Erro: " + (err.error || "desconhecido"));
+    }
+  } catch(e) {
+    showToast("Erro de conexão ao excluir");
+  }
+}
+
+function confirmClearAll() {
+  showConfirm(
+    "Excluir Todos os Dados",
+    "Todos os inventários catalogados serão permanentemente removidos. Tem certeza?",
+    "Excluir Tudo",
+    clearAllInventories
+  );
+}
+
+async function clearAllInventories() {
+  try {
+    const res = await fetchWithRetry("/api/delete_inventory?all=true", { method: "DELETE" });
+    if (res.ok) {
+      showToast("Todos os dados foram removidos!");
+      loadManageList();
+    } else {
+      const err = await res.json();
+      showToast("Erro: " + (err.error || "desconhecido"));
+    }
+  } catch(e) {
+    showToast("Erro de conexão");
+  }
+}
+
+async function exportBackup() {
+  try {
+    showToast("Preparando backup...", 0);
+    const listRes = await fetchWithRetry("/api/list_inventories");
+    if (!listRes.ok) throw new Error("Não foi possível listar os inventários");
+    const list = await listRes.json();
+    const inventories = await Promise.all(list.map(async item => {
+      const res = await fetchWithRetry(`/api/get_inventory?id=${encodeURIComponent(item.id)}`);
+      if (!res.ok) throw new Error(`Falha ao carregar ${item.month_year}`);
+      const inventory = await res.json();
+      return { month_year: inventory.month_year, filename: inventory.filename, data: inventory.data };
+    }));
+    const backup = { format: "implatec-inventory-backup", version: 1, exported_at: new Date().toISOString(), inventories };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `backup-inventarios-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showToast(`${inventories.length} inventário(s) exportado(s).`);
+  } catch (err) {
+    showToast(`Erro no backup: ${err.message}`);
+  }
+}
+
+async function selectBackupFile(event) {
+  const file = event.target.files[0];
+  event.target.value = "";
+  if (!file) return;
+  try {
+    const backup = JSON.parse(await file.text());
+    if (backup.format !== "implatec-inventory-backup" || backup.version !== 1 || !Array.isArray(backup.inventories)) {
+      throw new Error("arquivo de backup inválido");
+    }
+    const valid = backup.inventories.every(inv => /^\d{2}\/\d{4}$/.test(inv.month_year) && Array.isArray(inv.data));
+    if (!valid) throw new Error("o backup contém inventários inválidos");
+    showConfirm("Restaurar Backup", `${backup.inventories.length} inventário(s) serão restaurados. Meses existentes serão substituídos.`, "Restaurar", () => restoreBackup(backup.inventories), false);
+  } catch (err) {
+    showToast(`Erro: ${err.message}`);
+  }
+}
+
+async function restoreBackup(inventories) {
+  let restored = 0;
+  try {
+    showToast("Restaurando inventários...", 0);
+    for (const inventory of inventories) {
+      const res = await fetchWithRetry("/api/save_inventory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...inventory, overwrite: true })
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(`${inventory.month_year}: ${error.error || "falha ao salvar"}`);
+      }
+      restored++;
+    }
+    showToast(`${restored} inventário(s) restaurado(s).`);
+    loadManageList();
+  } catch (err) {
+    showToast(`Restauração interrompida após ${restored}: ${err.message}`, 6000);
+  }
+}
+// ==================== SAVE & SHARE ====================
+function shareCurrentAnalysis() {
+  if(!currentM1_id || !currentM2_id) return;
+  const link = window.location.origin + window.location.pathname + `?m1=${currentM1_id}&m2=${currentM2_id}`;
+  document.getElementById("share-link").value = link;
+  document.getElementById("share-modal").style.display = "flex";
+}
+
+function closeShareModal() {
+  document.getElementById("share-modal").style.display = "none";
+}
+
+async function copyLink() {
+  const input = document.getElementById("share-link");
+  try {
+    await navigator.clipboard.writeText(input.value);
+    showToast("Link copiado!");
+  } catch {
+    input.select();
+    document.execCommand("copy");
+    showToast("Link copiado!");
+  }
+}
+
+function showToast(msg, duration = 3000) {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.innerHTML = `<span style="flex:1">${escapeHtml(msg)}</span><button onclick="this.parentElement.remove()" style="background:none;border:none;color:inherit;cursor:pointer;font-size:1.1rem;padding:0 0 0 8px;line-height:1;opacity:0.7">&times;</button>`;
+  t.style.display = 'flex';
+  t.style.alignItems = 'center';
+  t.style.gap = '8px';
+  document.body.appendChild(t);
+
+  if (duration > 0) {
+    setTimeout(() => {
+      if (t.parentElement) t.remove();
+    }, duration);
+  }
+}
+
+// ==================== KEEP-ALIVE ====================
+// Faz um ping leve no banco a cada 4 minutos para evitar que o
+// servidor pause o pool de conexão por inatividade.
+(function startKeepAlive() {
+  const INTERVAL_MS = 4 * 60 * 1000; // 4 minutos
+
+  async function ping() {
+    try {
+      const res = await fetch('/api/keepalive', { cache: 'no-store' });
+      const json = await res.json();
+      console.debug('[keep-alive] ping ok', json.ts);
+    } catch (err) {
+      console.warn('[keep-alive] ping falhou, Supabase pode estar acordando...', err);
+    }
+  }
+
+  // Primeiro ping logo ao carregar a página
+  ping();
+  setInterval(ping, INTERVAL_MS);
+})();
+
+// ==================== FETCH COM RETRY (wake-up do banco) ====================
+// O banco SQL Server pode levar alguns segundos para responder após
+// ficar inativo. Esta função envolve o fetch com até 3 tentativas
+// e backoff exponencial.
+async function fetchWithRetry(url, options = {}, maxRetries = 3) {
+  const RETRY_DELAYS = [2000, 5000, 10000]; // ms entre tentativas
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await fetch(url, options);
+
+      // Se o servidor retornou 5xx (possível cold start), tenta novamente
+      if (res.status >= 500 && attempt < maxRetries) {
+        const delay = RETRY_DELAYS[attempt] || 10000;
+        console.warn(`[retry] ${url} retornou ${res.status}. Nova tentativa em ${delay/1000}s...`);
+        if (attempt === 0) showToast('Conectando ao banco de dados...');
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+
+      return res; // Sucesso ou erro não-5xx
+    } catch (err) {
+      if (attempt < maxRetries) {
+        const delay = RETRY_DELAYS[attempt] || 10000;
+        console.warn(`[retry] ${url} falhou (${err.message}). Nova tentativa em ${delay/1000}s...`);
+        if (attempt === 0) showToast('Aguardando conexão com o banco...');
+        await new Promise(r => setTimeout(r, delay));
+      } else {
+        throw err; // Esgotou as tentativas
+      }
+    }
+  }
+}
+
+// ==================== INIT ====================
+(function() {
+  if (window.lucide) window.lucide.createIcons();
+  loadHomeDashboard(true);
+  const p = new URLSearchParams(window.location.search);
+  // Compatibilidade com a rota antiga (opcional), mas vamos focar na nova `m1` e `m2`
+  if (p.has('m1') && p.has('m2')) {
+    loadAndCompare(p.get('m1'), p.get('m2'));
+  }
+})();
+</script>
+</body>
+</html>
