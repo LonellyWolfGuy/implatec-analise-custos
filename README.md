@@ -2,7 +2,7 @@
 
 Comparativo de inventário mensal para a Implatec Perfis Plásticos. Processa relatórios PDF (MOD7) e CSV exportados do TOTVS ERP, cataloga os dados por mês no banco, e exibe um dashboard interativo comparando as oscilações de custo entre dois períodos selecionados.
 
-**Desenvolvedor:** Thiago Fischer
+**Criador e mantenedor:** Thiago Fischer
 **Empresa:** Implatec Perfis Plásticos — CNPJ 00.716.481/0001-36
 **Modelo:** P7 (Custo Médio)
 
