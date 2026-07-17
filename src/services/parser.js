@@ -1,8 +1,9 @@
 import * as pdfjsLib from 'pdfjs-dist';
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import Papa from 'papaparse';
 
-// Set worker source for pdfjs
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+// Keep the worker on the same version and origin as the PDF.js bundle.
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 export const CAT_PREFIX = {PA:"01",CO:"03",MP:"04",AG:"05",EM:"06",RE:"11"};
 
@@ -84,7 +85,7 @@ function tryParseLine(line) {
 
 export async function extractFromPdf(file, onProgress) {
   const ab = await file.arrayBuffer();
-  const doc = await pdfjsLib.getDocument(ab).promise;
+  const doc = await pdfjsLib.getDocument({ data: new Uint8Array(ab) }).promise;
   const allItems = [];
   const seen = new Set();
   
@@ -132,12 +133,14 @@ export async function extractFromCsv(file) {
 }
 
 export async function processFile(file, onProgress) {
-  if (file.name.endsWith('.pdf')) {
+  const fileName = file.name.toLowerCase();
+
+  if (fileName.endsWith('.pdf')) {
     const items = await extractFromPdf(file, onProgress);
     items.forEach(i => { if (!i.cat) i.cat = guessCategory(i.cod); });
     return { name: file.name, items };
   }
-  if (file.name.endsWith('.csv')) {
+  if (fileName.endsWith('.csv')) {
     let items = await extractFromCsv(file);
     // Basic mapping if CSV is raw
     if (items.length > 0 && !items[0].cod && Object.keys(items[0]).length > 0) {
