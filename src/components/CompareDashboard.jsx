@@ -164,6 +164,40 @@ export default function CompareDashboard({ catalog, onBack }) {
     }]
   };
 
+  const handleExportCSV = () => {
+    if (!filteredData || filteredData.length === 0) return;
+    
+    const headers = [
+      'Código', 'Descrição', 'Cat', 
+      `Qtd ${inv1Name}`, `Unit ${inv1Name}`, `Parc ${inv1Name}`,
+      `Qtd ${inv2Name}`, `Unit ${inv2Name}`, `Parc ${inv2Name}`,
+      'Delta Unit', 'Delta Parc', 'Delta Parc %'
+    ];
+    
+    // Converte os valores usando padronização do Brasil (ponto para milhar não é nativo, mas podemos usar vírgula decimal)
+    // Para simplificar no Excel e não quebrar o CSV, usamos formato de string
+    const escapeCsv = (str) => `"${String(str).replace(/"/g, '""')}"`;
+    const formatCsvNumber = (v) => (v == null || isNaN(v)) ? '' : String(v).replace('.', ',');
+    
+    const rows = filteredData.map(r => [
+      r.cod, r.desc, r.cat,
+      formatCsvNumber(r.q1), formatCsvNumber(r.u1), formatCsvNumber(r.p1),
+      formatCsvNumber(r.q2), formatCsvNumber(r.u2), formatCsvNumber(r.p2),
+      formatCsvNumber(r.du), formatCsvNumber(r.dp), formatCsvNumber(r.dpp)
+    ].map(escapeCsv).join(';'));
+    
+    const csvContent = [headers.join(';'), ...rows].join('\n');
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Relatorio_Comparativo_${inv1Name}_vs_${inv2Name}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="animate-fade-in">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
@@ -173,6 +207,7 @@ export default function CompareDashboard({ catalog, onBack }) {
         </div>
         <div className="no-print" style={{ display: 'flex', gap: '0.75rem' }}>
           <button className="btn btn-ghost" onClick={() => setData(null)}><ArrowLeft size={16} /> Voltar</button>
+          <button className="btn btn-ghost" onClick={handleExportCSV}><Download size={16} /> Exportar</button>
           <button className="btn btn-ghost" onClick={() => window.print()}><Printer size={16} /> Imprimir</button>
         </div>
       </div>
