@@ -216,7 +216,7 @@ export default function CompareDashboard({ catalog, onBack }) {
         <input type="text" className="input-field" placeholder="Buscar por código ou descrição..." value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
-      <div className="table-container" style={{ height: '600px', overflowY: 'auto' }}>
+      <div className="table-container" style={{ maxHeight: 'calc(100vh - 250px)', overflow: 'auto' }}>
         <table className="table">
           <thead>
             <tr>
