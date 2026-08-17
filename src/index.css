@@ -116,7 +116,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Layout */
 .app-container {
-  max-width: 1280px;
+  max-width: 96%;
   margin: 0 auto;
   padding: 2rem;
 }
