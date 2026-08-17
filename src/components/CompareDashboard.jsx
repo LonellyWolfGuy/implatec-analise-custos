@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ArrowLeft, ArrowUp, ArrowDown, Share2, Download, Printer, FileText } from 'lucide-react';
+import { ArrowLeft, ArrowUp, ArrowDown, Printer, FileText } from 'lucide-react';
 import { getInventory } from '../services/api';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import IMPLATEC_LOGO from '../assets/logo.js';
+import IMPLATEC_LOGO from '../assets/logo-implatec.png?inline';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
@@ -175,159 +175,296 @@ export default function CompareDashboard({ catalog, onBack }) {
   }[filterView] || '';
 
   const handleExportPDF = () => {
-    if (!filteredData || filteredData.length === 0) return;
+    if (!filteredData || filteredData.length === 0) {
+      window.alert('Não há itens no filtro atual para exportar. Ajuste os filtros e tente novamente.');
+      return;
+    }
 
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-    const pageW = doc.internal.pageSize.getWidth();
-
-    // --- HEADER ---
-    // Logo
     try {
-      doc.addImage(IMPLATEC_LOGO, 'PNG', 10, 6, 50, 18);
-    } catch(e) { /* ignora se falhar */ }
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const pageW = doc.internal.pageSize.getWidth();
+      const GREEN = [0, 103, 45];
+      const DARK_GREEN = [0, 79, 34];
+      const LIGHT_GREEN = [242, 248, 243];
+      const RED = [210, 32, 38];
+      const DARK = [35, 42, 38];
+      const MUTED = [100, 110, 104];
+      const BORDER = [210, 222, 213];
+      const LOGO_ASPECT_RATIO = 1141 / 224;
 
-    // Linha verde separadora
-    doc.setDrawColor(0, 120, 0);
-    doc.setLineWidth(0.8);
-    doc.line(10, 27, pageW - 10, 27);
+      const toNumber = value => {
+        const numeric = Number(value);
+        return Number.isFinite(numeric) ? numeric : 0;
+      };
+      const fmtPdf = (value, decimals = 2) => {
+        if (value == null || value === '') return '-';
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric)) return '-';
+        return numeric.toLocaleString('pt-BR', {
+          minimumFractionDigits: decimals,
+          maximumFractionDigits: decimals,
+        });
+      };
+      const fmtSignedPdf = (value, decimals = 2) => {
+        if (value == null || value === '') return '-';
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric)) return '-';
+        return `${numeric > 0 ? '+' : ''}${fmtPdf(numeric, decimals)}`;
+      };
+      const fmtPercentPdf = value => {
+        if (value == null || !Number.isFinite(Number(value))) return '-';
+        return `${fmtSignedPdf(value)}%`;
+      };
 
-    // Título do relatório
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(13);
-    doc.setTextColor(0, 100, 0);
-    doc.text('Relatório de Análise de Custos', pageW / 2, 14, { align: 'center' });
+      // Todos os indicadores gerenciais são calculados sobre o mesmo recorte da tabela.
+      const reportMetrics = filteredData.reduce((metrics, row) => {
+        metrics.totalReference += toNumber(row.p1);
+        metrics.totalCompared += toNumber(row.p2);
+        if (toNumber(row.dp) > 0) metrics.increases += 1;
+        else if (toNumber(row.dp) < 0) metrics.decreases += 1;
+        else metrics.unchanged += 1;
+        return metrics;
+      }, {
+        totalReference: 0,
+        totalCompared: 0,
+        increases: 0,
+        decreases: 0,
+        unchanged: 0,
+      });
+      reportMetrics.variation = reportMetrics.totalCompared - reportMetrics.totalReference;
+      reportMetrics.variationPct = reportMetrics.totalReference
+        ? (reportMetrics.variation / reportMetrics.totalReference) * 100
+        : null;
 
-    doc.setFontSize(10);
-    doc.setTextColor(80, 80, 80);
-    doc.text(`Comparativo: ${inv1Name} vs ${inv2Name}`, pageW / 2, 20, { align: 'center' });
+      const categoryLabel = {
+        PA: 'PA - Produto Acabado',
+        CO: 'CO - Composto',
+        MP: 'MP - Matéria Prima',
+      }[filterCat] || (filterCat || 'Todas as categorias');
+      const filterParts = [
+        `Visão: ${filterLabel}`,
+        `Categoria: ${categoryLabel}`,
+      ];
+      if (search.trim()) filterParts.push(`Busca: "${search.trim()}"`);
+      const filterSummary = filterParts.join(' | ');
+      const emittedAt = new Date().toLocaleString('pt-BR');
 
-    doc.setFontSize(9);
-    doc.text(`Filtro: ${filterLabel}${filterCat ? ' | Categoria: ' + filterCat : ''}${search ? ' | Busca: "' + search + '"' : ''}`, pageW / 2, 25, { align: 'center' });
-
-    // Data de emissão
-    const now = new Date().toLocaleString('pt-BR');
-    doc.setFontSize(8);
-    doc.setTextColor(150, 150, 150);
-    doc.text(`Emitido em: ${now}`, pageW - 12, 14, { align: 'right' });
-
-    // --- SUMMÁRIO ---
-    const tot1 = data.reduce((a, r) => a + r.p1, 0);
-    const tot2 = data.reduce((a, r) => a + r.p2, 0);
-    const delta = tot2 - tot1;
-    const deltaPct = tot1 ? (delta / tot1) * 100 : 0;
-    const fmtPdf = (v, d=2) => (v == null || isNaN(v)) ? '-' : v.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
-    const fmtRPdf = (v, d=2) => { if (!v || v === 0) return '-'; return (v > 0 ? '+' : '') + fmtPdf(v, d); };
-
-    doc.setFontSize(9);
-    doc.setTextColor(40, 40, 40);
-    const summaryY = 32;
-    const colW = (pageW - 20) / 4;
-    const summaryItems = [
-      { label: `Total ${inv1Name}`, value: `R$ ${fmtPdf(tot1)}` },
-      { label: `Total ${inv2Name}`, value: `R$ ${fmtPdf(tot2)}` },
-      { label: 'Flutuação Geral', value: `R$ ${fmtRPdf(delta)} (${fmtRPdf(deltaPct)}%)` },
-      { label: 'Itens no Relatório', value: `${filteredData.length} itens` },
-    ];
-    summaryItems.forEach((item, i) => {
-      const x = 10 + i * colW;
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7);
-      doc.setTextColor(100, 100, 100);
-      doc.text(item.label.toUpperCase(), x + colW / 2, summaryY, { align: 'center' });
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      const color = item.label.includes('Flutua') && delta > 0 ? [200, 0, 0] : item.label.includes('Flutua') && delta < 0 ? [0, 140, 0] : [30, 30, 30];
-      doc.setTextColor(...color);
-      doc.text(item.value, x + colW / 2, summaryY + 6, { align: 'center' });
-    });
-
-    doc.setDrawColor(220, 220, 220);
-    doc.setLineWidth(0.3);
-    doc.line(10, summaryY + 10, pageW - 10, summaryY + 10);
-
-    // --- TABELA ---
-    const headers = [
-      'Código', 'Descrição', 'Cat',
-      `Qtd\n${inv1Name}`, `Unit\n${inv1Name}`, `Parc\n${inv1Name}`,
-      `Qtd\n${inv2Name}`, `Unit\n${inv2Name}`, `Parc\n${inv2Name}`,
-      'Δ Unit', 'Δ Parc', 'Δ Parc %'
-    ];
-
-    const rows = filteredData.map(r => [
-      r.cod,
-      r.desc,
-      r.cat,
-      fmtPdf(r.q1, 3),
-      fmtPdf(r.u1, 4),
-      fmtPdf(r.p1),
-      fmtPdf(r.q2, 3),
-      fmtPdf(r.u2, 4),
-      fmtPdf(r.p2),
-      fmtRPdf(r.du, 4),
-      fmtRPdf(r.dp),
-      fmtRPdf(r.dpp) + '%',
-    ]);
-
-    autoTable(doc, {
-      startY: summaryY + 13,
-      head: [headers],
-      body: rows,
-      theme: 'grid',
-      styles: {
-        font: 'helvetica',
-        fontSize: 7,
-        cellPadding: 1.5,
-        valign: 'middle',
-        overflow: 'linebreak',
-      },
-      headStyles: {
-        fillColor: [0, 100, 0],
-        textColor: 255,
-        fontStyle: 'bold',
-        halign: 'center',
-        fontSize: 7,
-      },
-      columnStyles: {
-        0: { cellWidth: 22, halign: 'left' },
-        1: { cellWidth: 'auto', halign: 'left' },
-        2: { cellWidth: 12, halign: 'center' },
-        3: { cellWidth: 18, halign: 'right' },
-        4: { cellWidth: 18, halign: 'right' },
-        5: { cellWidth: 22, halign: 'right' },
-        6: { cellWidth: 18, halign: 'right' },
-        7: { cellWidth: 18, halign: 'right' },
-        8: { cellWidth: 22, halign: 'right' },
-        9: { cellWidth: 18, halign: 'right' },
-        10: { cellWidth: 20, halign: 'right' },
-        11: { cellWidth: 16, halign: 'right' },
-      },
-      alternateRowStyles: { fillColor: [245, 250, 245] },
-      didParseCell: (data) => {
-        if (data.section === 'body') {
-          const colIdx = data.column.index;
-          const val = data.cell.raw;
-          if ((colIdx === 9 || colIdx === 10 || colIdx === 11) && typeof val === 'string') {
-            if (val.startsWith('+')) data.cell.styles.textColor = [180, 0, 0];
-            else if (val.startsWith('-')) data.cell.styles.textColor = [0, 130, 0];
-          }
+      const drawLogo = (x, y, width) => {
+        try {
+          doc.addImage(IMPLATEC_LOGO, 'PNG', x, y, width, width / LOGO_ASPECT_RATIO);
+        } catch (error) {
+          console.warn('Não foi possível inserir a logo no PDF.', error);
         }
-      },
-      // Footer com número de página
-      didDrawPage: (d) => {
-        const pageCount = doc.internal.getNumberOfPages();
-        const pY = doc.internal.pageSize.getHeight() - 5;
-        doc.setFontSize(7);
-        doc.setTextColor(160, 160, 160);
-        doc.text('IMPLATEC – Perfis Plásticos', 10, pY);
-        doc.text(`Página ${d.pageNumber} de ${pageCount}`, pageW - 10, pY, { align: 'right' });
-        // Linha verde no rodapé
-        doc.setDrawColor(0, 120, 0);
-        doc.setLineWidth(0.4);
-        doc.line(10, pY - 2, pageW - 10, pY - 2);
-      },
-    });
+      };
 
-    doc.save(`Relatorio_Comparativo_${inv1Name}_vs_${inv2Name}.pdf`);
+      // Cabeçalho executivo da primeira página.
+      drawLogo(10, 5, 58);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.setTextColor(...DARK_GREEN);
+      doc.text('RELATÓRIO GERENCIAL DE CUSTOS', pageW - 10, 9, { align: 'right' });
+      doc.setFontSize(10);
+      doc.setTextColor(...DARK);
+      doc.text(`Comparativo: ${inv1Name} vs ${inv2Name}`, pageW - 10, 16, { align: 'right' });
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(...MUTED);
+      doc.text(`Emitido em ${emittedAt}`, pageW - 10, 21, { align: 'right' });
+
+      doc.setDrawColor(...GREEN);
+      doc.setLineWidth(0.8);
+      doc.line(10, 24, pageW - 10, 24);
+      doc.setDrawColor(...RED);
+      doc.setLineWidth(1.2);
+      doc.line(10, 25.5, 68, 25.5);
+
+      // Faixa com os filtros efetivamente aplicados.
+      const filterBlockY = 29;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      const filterLines = doc.splitTextToSize(filterSummary, pageW - 64);
+      const filterBlockHeight = Math.max(9, 4.5 + filterLines.length * 3.5);
+      doc.setFillColor(...LIGHT_GREEN);
+      doc.setDrawColor(...BORDER);
+      doc.roundedRect(10, filterBlockY, pageW - 20, filterBlockHeight, 1.5, 1.5, 'FD');
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...DARK_GREEN);
+      doc.text('FILTROS APLICADOS', 14, filterBlockY + 5.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...DARK);
+      doc.text(filterLines, 43, filterBlockY + 5.5);
+
+      // Indicadores do recorte filtrado.
+      const kpiY = filterBlockY + filterBlockHeight + 3;
+      const kpiHeight = 18;
+      const kpiGap = 3;
+      const kpiWidth = (pageW - 20 - kpiGap * 3) / 4;
+      const variationColor = reportMetrics.variation > 0
+        ? RED
+        : reportMetrics.variation < 0
+          ? GREEN
+          : MUTED;
+      const kpis = [
+        {
+          label: `TOTAL ${inv1Name}`,
+          value: `R$ ${fmtPdf(reportMetrics.totalReference)}`,
+          color: DARK,
+        },
+        {
+          label: `TOTAL ${inv2Name}`,
+          value: `R$ ${fmtPdf(reportMetrics.totalCompared)}`,
+          color: DARK,
+        },
+        {
+          label: 'VARIAÇÃO DO RECORTE',
+          value: `R$ ${fmtSignedPdf(reportMetrics.variation)} (${fmtPercentPdf(reportMetrics.variationPct)})`,
+          color: variationColor,
+        },
+        {
+          label: 'ITENS DO RECORTE',
+          value: `${filteredData.length} itens`,
+          detail: `Altas ${reportMetrics.increases} | Reduções ${reportMetrics.decreases} | Estáveis ${reportMetrics.unchanged}`,
+          color: DARK_GREEN,
+        },
+      ];
+
+      kpis.forEach((item, index) => {
+        const x = 10 + index * (kpiWidth + kpiGap);
+        doc.setFillColor(250, 252, 250);
+        doc.setDrawColor(...(index === 2 ? variationColor : BORDER));
+        doc.setLineWidth(index === 2 ? 0.6 : 0.3);
+        doc.roundedRect(x, kpiY, kpiWidth, kpiHeight, 1.5, 1.5, 'FD');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7);
+        doc.setTextColor(...MUTED);
+        doc.text(item.label, x + 4, kpiY + 5);
+        doc.setFontSize(10.5);
+        doc.setTextColor(...item.color);
+        doc.text(item.value, x + 4, kpiY + 11.5);
+        if (item.detail) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(6.5);
+          doc.setTextColor(...MUTED);
+          doc.text(item.detail, x + 4, kpiY + 15.5);
+        }
+      });
+
+      const headers = [
+        'Código', 'Descrição', 'Cat',
+        `Qtd\n${inv1Name}`, `Unit.\n${inv1Name}`, `Parc.\n${inv1Name}`,
+        `Qtd\n${inv2Name}`, `Unit.\n${inv2Name}`, `Parc.\n${inv2Name}`,
+        'Var. Unit.', 'Var. Parc.', 'Var. %',
+      ];
+      const rows = filteredData.map(row => [
+        row.cod,
+        row.desc,
+        row.cat,
+        fmtPdf(row.q1, 3),
+        fmtPdf(row.u1, 4),
+        fmtPdf(row.p1),
+        fmtPdf(row.q2, 3),
+        fmtPdf(row.u2, 4),
+        fmtPdf(row.p2),
+        fmtSignedPdf(row.du, 4),
+        fmtSignedPdf(row.dp),
+        fmtPercentPdf(row.dpp),
+      ]);
+
+      const continuationFilter = filterSummary.length > 145
+        ? `${filterSummary.slice(0, 142)}...`
+        : filterSummary;
+      const drawContinuationHeader = () => {
+        drawLogo(10, 5, 40);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.setTextColor(...DARK_GREEN);
+        doc.text('RELATÓRIO GERENCIAL DE CUSTOS', pageW - 10, 8, { align: 'right' });
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.setTextColor(...MUTED);
+        doc.text(`${inv1Name} vs ${inv2Name} | ${continuationFilter}`, pageW - 10, 14, { align: 'right' });
+        doc.setDrawColor(...GREEN);
+        doc.setLineWidth(0.5);
+        doc.line(10, 18, pageW - 10, 18);
+      };
+
+      autoTable(doc, {
+        startY: kpiY + kpiHeight + 4,
+        head: [headers],
+        body: rows,
+        theme: 'grid',
+        margin: { top: 22, right: 10, bottom: 14, left: 10 },
+        styles: {
+          font: 'helvetica',
+          fontSize: 7,
+          cellPadding: 1.5,
+          valign: 'middle',
+          overflow: 'linebreak',
+          lineColor: BORDER,
+          lineWidth: 0.15,
+        },
+        headStyles: {
+          fillColor: GREEN,
+          textColor: 255,
+          fontStyle: 'bold',
+          halign: 'center',
+          fontSize: 7,
+          minCellHeight: 9,
+        },
+        columnStyles: {
+          0: { cellWidth: 22, halign: 'left' },
+          1: { cellWidth: 'auto', halign: 'left' },
+          2: { cellWidth: 12, halign: 'center' },
+          3: { cellWidth: 18, halign: 'right' },
+          4: { cellWidth: 18, halign: 'right' },
+          5: { cellWidth: 22, halign: 'right' },
+          6: { cellWidth: 18, halign: 'right' },
+          7: { cellWidth: 18, halign: 'right' },
+          8: { cellWidth: 22, halign: 'right' },
+          9: { cellWidth: 18, halign: 'right' },
+          10: { cellWidth: 20, halign: 'right' },
+          11: { cellWidth: 16, halign: 'right' },
+        },
+        alternateRowStyles: { fillColor: [246, 250, 247] },
+        didParseCell: hookData => {
+          if (hookData.section !== 'body') return;
+          const columnIndex = hookData.column.index;
+          const value = hookData.cell.raw;
+          if ((columnIndex === 9 || columnIndex === 10 || columnIndex === 11) && typeof value === 'string') {
+            if (value.startsWith('+')) hookData.cell.styles.textColor = RED;
+            else if (value.startsWith('-')) hookData.cell.styles.textColor = GREEN;
+          }
+        },
+        willDrawPage: hookData => {
+          if (hookData.pageNumber > 1) drawContinuationHeader();
+        },
+      });
+
+      // Rodapé aplicado após a tabela para usar o número total definitivo de páginas.
+      const totalPages = doc.internal.getNumberOfPages();
+      for (let pageNumber = 1; pageNumber <= totalPages; pageNumber += 1) {
+        doc.setPage(pageNumber);
+        const pageH = doc.internal.pageSize.getHeight();
+        doc.setDrawColor(...GREEN);
+        doc.setLineWidth(0.35);
+        doc.line(10, pageH - 10, pageW - 10, pageH - 10);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.setTextColor(...MUTED);
+        doc.text('IMPLATEC | Relatório gerencial - uso interno', 10, pageH - 5.5);
+        doc.text(`Página ${pageNumber} de ${totalPages}`, pageW - 10, pageH - 5.5, { align: 'right' });
+      }
+
+      const sanitizeFilePart = value => String(value)
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[<>:"/\\|?*\x00-\x1F]/g, '-')
+        .replace(/\s+/g, '_');
+      doc.save(`Relatorio_Gerencial_${sanitizeFilePart(inv1Name)}_vs_${sanitizeFilePart(inv2Name)}.pdf`);
+    } catch (error) {
+      console.error('Erro ao gerar o relatório em PDF:', error);
+      window.alert('Não foi possível gerar o PDF. Tente novamente ou verifique o console para mais detalhes.');
+    }
   };
 
   return (
@@ -339,7 +476,15 @@ export default function CompareDashboard({ catalog, onBack }) {
         </div>
         <div className="no-print" style={{ display: 'flex', gap: '0.75rem' }}>
           <button className="btn btn-ghost" onClick={() => setData(null)}><ArrowLeft size={16} /> Voltar</button>
-          <button className="btn btn-ghost" onClick={handleExportPDF} style={{ color: '#006400', borderColor: '#006400' }}><FileText size={16} /> Exportar PDF</button>
+          <button
+            className="btn btn-ghost"
+            onClick={handleExportPDF}
+            disabled={filteredData.length === 0}
+            title={filteredData.length === 0 ? 'Não há itens no filtro atual para exportar' : 'Exportar o recorte filtrado em PDF'}
+            style={{ color: '#006400', borderColor: '#006400' }}
+          >
+            <FileText size={16} /> Exportar PDF
+          </button>
           <button className="btn btn-ghost" onClick={() => window.print()}><Printer size={16} /> Imprimir</button>
         </div>
       </div>
