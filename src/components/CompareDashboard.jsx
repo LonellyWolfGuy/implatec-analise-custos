@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ArrowLeft, ArrowUp, ArrowDown, Share2, Download, Printer } from 'lucide-react';
+import { ArrowLeft, ArrowUp, ArrowDown, Share2, Download, Printer, FileText } from 'lucide-react';
 import { getInventory } from '../services/api';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import IMPLATEC_LOGO from '../assets/logo.js';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
@@ -164,38 +167,167 @@ export default function CompareDashboard({ catalog, onBack }) {
     }]
   };
 
-  const handleExportCSV = () => {
+  const filterLabel = {
+    changed: 'Itens Alterados',
+    all: 'Todos os Itens',
+    increased: 'Somente Aumentos',
+    decreased: 'Somente Reduções',
+  }[filterView] || '';
+
+  const handleExportPDF = () => {
     if (!filteredData || filteredData.length === 0) return;
-    
-    const headers = [
-      'Código', 'Descrição', 'Cat', 
-      `Qtd ${inv1Name}`, `Unit ${inv1Name}`, `Parc ${inv1Name}`,
-      `Qtd ${inv2Name}`, `Unit ${inv2Name}`, `Parc ${inv2Name}`,
-      'Delta Unit', 'Delta Parc', 'Delta Parc %'
+
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+
+    // --- HEADER ---
+    // Logo
+    try {
+      doc.addImage(IMPLATEC_LOGO, 'PNG', 10, 6, 50, 18);
+    } catch(e) { /* ignora se falhar */ }
+
+    // Linha verde separadora
+    doc.setDrawColor(0, 120, 0);
+    doc.setLineWidth(0.8);
+    doc.line(10, 27, pageW - 10, 27);
+
+    // Título do relatório
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(0, 100, 0);
+    doc.text('Relatório de Análise de Custos', pageW / 2, 14, { align: 'center' });
+
+    doc.setFontSize(10);
+    doc.setTextColor(80, 80, 80);
+    doc.text(`Comparativo: ${inv1Name} vs ${inv2Name}`, pageW / 2, 20, { align: 'center' });
+
+    doc.setFontSize(9);
+    doc.text(`Filtro: ${filterLabel}${filterCat ? ' | Categoria: ' + filterCat : ''}${search ? ' | Busca: "' + search + '"' : ''}`, pageW / 2, 25, { align: 'center' });
+
+    // Data de emissão
+    const now = new Date().toLocaleString('pt-BR');
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text(`Emitido em: ${now}`, pageW - 12, 14, { align: 'right' });
+
+    // --- SUMMÁRIO ---
+    const tot1 = data.reduce((a, r) => a + r.p1, 0);
+    const tot2 = data.reduce((a, r) => a + r.p2, 0);
+    const delta = tot2 - tot1;
+    const deltaPct = tot1 ? (delta / tot1) * 100 : 0;
+    const fmtPdf = (v, d=2) => (v == null || isNaN(v)) ? '-' : v.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
+    const fmtRPdf = (v, d=2) => { if (!v || v === 0) return '-'; return (v > 0 ? '+' : '') + fmtPdf(v, d); };
+
+    doc.setFontSize(9);
+    doc.setTextColor(40, 40, 40);
+    const summaryY = 32;
+    const colW = (pageW - 20) / 4;
+    const summaryItems = [
+      { label: `Total ${inv1Name}`, value: `R$ ${fmtPdf(tot1)}` },
+      { label: `Total ${inv2Name}`, value: `R$ ${fmtPdf(tot2)}` },
+      { label: 'Flutuação Geral', value: `R$ ${fmtRPdf(delta)} (${fmtRPdf(deltaPct)}%)` },
+      { label: 'Itens no Relatório', value: `${filteredData.length} itens` },
     ];
-    
-    // Converte os valores usando padronização do Brasil (ponto para milhar não é nativo, mas podemos usar vírgula decimal)
-    // Para simplificar no Excel e não quebrar o CSV, usamos formato de string
-    const escapeCsv = (str) => `"${String(str).replace(/"/g, '""')}"`;
-    const formatCsvNumber = (v) => (v == null || isNaN(v)) ? '' : String(v).replace('.', ',');
-    
+    summaryItems.forEach((item, i) => {
+      const x = 10 + i * colW;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(100, 100, 100);
+      doc.text(item.label.toUpperCase(), x + colW / 2, summaryY, { align: 'center' });
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      const color = item.label.includes('Flutua') && delta > 0 ? [200, 0, 0] : item.label.includes('Flutua') && delta < 0 ? [0, 140, 0] : [30, 30, 30];
+      doc.setTextColor(...color);
+      doc.text(item.value, x + colW / 2, summaryY + 6, { align: 'center' });
+    });
+
+    doc.setDrawColor(220, 220, 220);
+    doc.setLineWidth(0.3);
+    doc.line(10, summaryY + 10, pageW - 10, summaryY + 10);
+
+    // --- TABELA ---
+    const headers = [
+      'Código', 'Descrição', 'Cat',
+      `Qtd\n${inv1Name}`, `Unit\n${inv1Name}`, `Parc\n${inv1Name}`,
+      `Qtd\n${inv2Name}`, `Unit\n${inv2Name}`, `Parc\n${inv2Name}`,
+      'Δ Unit', 'Δ Parc', 'Δ Parc %'
+    ];
+
     const rows = filteredData.map(r => [
-      r.cod, r.desc, r.cat,
-      formatCsvNumber(r.q1), formatCsvNumber(r.u1), formatCsvNumber(r.p1),
-      formatCsvNumber(r.q2), formatCsvNumber(r.u2), formatCsvNumber(r.p2),
-      formatCsvNumber(r.du), formatCsvNumber(r.dp), formatCsvNumber(r.dpp)
-    ].map(escapeCsv).join(';'));
-    
-    const csvContent = [headers.join(';'), ...rows].join('\n');
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Relatorio_Comparativo_${inv1Name}_vs_${inv2Name}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+      r.cod,
+      r.desc,
+      r.cat,
+      fmtPdf(r.q1, 3),
+      fmtPdf(r.u1, 4),
+      fmtPdf(r.p1),
+      fmtPdf(r.q2, 3),
+      fmtPdf(r.u2, 4),
+      fmtPdf(r.p2),
+      fmtRPdf(r.du, 4),
+      fmtRPdf(r.dp),
+      fmtRPdf(r.dpp) + '%',
+    ]);
+
+    autoTable(doc, {
+      startY: summaryY + 13,
+      head: [headers],
+      body: rows,
+      theme: 'grid',
+      styles: {
+        font: 'helvetica',
+        fontSize: 7,
+        cellPadding: 1.5,
+        valign: 'middle',
+        overflow: 'linebreak',
+      },
+      headStyles: {
+        fillColor: [0, 100, 0],
+        textColor: 255,
+        fontStyle: 'bold',
+        halign: 'center',
+        fontSize: 7,
+      },
+      columnStyles: {
+        0: { cellWidth: 22, halign: 'left' },
+        1: { cellWidth: 'auto', halign: 'left' },
+        2: { cellWidth: 12, halign: 'center' },
+        3: { cellWidth: 18, halign: 'right' },
+        4: { cellWidth: 18, halign: 'right' },
+        5: { cellWidth: 22, halign: 'right' },
+        6: { cellWidth: 18, halign: 'right' },
+        7: { cellWidth: 18, halign: 'right' },
+        8: { cellWidth: 22, halign: 'right' },
+        9: { cellWidth: 18, halign: 'right' },
+        10: { cellWidth: 20, halign: 'right' },
+        11: { cellWidth: 16, halign: 'right' },
+      },
+      alternateRowStyles: { fillColor: [245, 250, 245] },
+      didParseCell: (data) => {
+        if (data.section === 'body') {
+          const colIdx = data.column.index;
+          const val = data.cell.raw;
+          if ((colIdx === 9 || colIdx === 10 || colIdx === 11) && typeof val === 'string') {
+            if (val.startsWith('+')) data.cell.styles.textColor = [180, 0, 0];
+            else if (val.startsWith('-')) data.cell.styles.textColor = [0, 130, 0];
+          }
+        }
+      },
+      // Footer com número de página
+      didDrawPage: (d) => {
+        const pageCount = doc.internal.getNumberOfPages();
+        const pY = doc.internal.pageSize.getHeight() - 5;
+        doc.setFontSize(7);
+        doc.setTextColor(160, 160, 160);
+        doc.text('IMPLATEC – Perfis Plásticos', 10, pY);
+        doc.text(`Página ${d.pageNumber} de ${pageCount}`, pageW - 10, pY, { align: 'right' });
+        // Linha verde no rodapé
+        doc.setDrawColor(0, 120, 0);
+        doc.setLineWidth(0.4);
+        doc.line(10, pY - 2, pageW - 10, pY - 2);
+      },
+    });
+
+    doc.save(`Relatorio_Comparativo_${inv1Name}_vs_${inv2Name}.pdf`);
   };
 
   return (
@@ -207,7 +339,7 @@ export default function CompareDashboard({ catalog, onBack }) {
         </div>
         <div className="no-print" style={{ display: 'flex', gap: '0.75rem' }}>
           <button className="btn btn-ghost" onClick={() => setData(null)}><ArrowLeft size={16} /> Voltar</button>
-          <button className="btn btn-ghost" onClick={handleExportCSV}><Download size={16} /> Exportar</button>
+          <button className="btn btn-ghost" onClick={handleExportPDF} style={{ color: '#006400', borderColor: '#006400' }}><FileText size={16} /> Exportar PDF</button>
           <button className="btn btn-ghost" onClick={() => window.print()}><Printer size={16} /> Imprimir</button>
         </div>
       </div>

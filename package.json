@@ -12,6 +12,8 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4",
     "chart.js": "^4.5.1",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "lucide-react": "^1.23.0",
     "papaparse": "^5.5.4",
     "pdfjs-dist": "^6.1.200",
