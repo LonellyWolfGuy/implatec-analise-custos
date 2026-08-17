@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Sun, Moon, Settings2 } from 'lucide-react';
 import UploadModal from './components/UploadModal';
 import CompareDashboard from './components/CompareDashboard';
+import ManageInventories from './components/ManageInventories';
 import { listInventories } from './services/api';
 
 export default function App() {
@@ -92,12 +93,15 @@ export default function App() {
               </div>
             </div>
             
-            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
               <button className="btn btn-primary" style={{ padding: '1rem 2rem', fontSize: '1.1rem' }} onClick={() => setCurrentScreen('compare')}>
                 Comparar Períodos
               </button>
               <button className="btn btn-ghost" style={{ padding: '1rem 2rem', fontSize: '1.1rem' }} onClick={() => setShowUpload(true)}>
                 Catalogar Novo Mês
+              </button>
+              <button className="btn btn-ghost" style={{ padding: '1rem 2rem', fontSize: '1.1rem' }} onClick={() => setCurrentScreen('manage')}>
+                Gerenciar Arquivos
               </button>
             </div>
           </div>
@@ -105,6 +109,10 @@ export default function App() {
 
         {currentScreen === 'compare' && (
           <CompareDashboard catalog={catalog} onBack={() => setCurrentScreen('home')} />
+        )}
+
+        {currentScreen === 'manage' && (
+          <ManageInventories catalog={catalog} onBack={() => setCurrentScreen('home')} onUpdate={loadCatalog} />
         )}
       </main>
 
