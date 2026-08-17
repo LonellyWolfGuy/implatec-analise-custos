@@ -171,7 +171,7 @@ export default function CompareDashboard({ catalog, onBack }) {
           <h2 style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>Comparativo {inv1Name} vs {inv2Name}</h2>
           <span style={{ color: 'var(--text-sec)', fontSize: '0.9rem' }}>Custo Médio · Filtro Ativo: {filteredData.length} itens</span>
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <div className="no-print" style={{ display: 'flex', gap: '0.75rem' }}>
           <button className="btn btn-ghost" onClick={() => setData(null)}><ArrowLeft size={16} /> Voltar</button>
           <button className="btn btn-ghost" onClick={() => window.print()}><Printer size={16} /> Imprimir</button>
         </div>
@@ -204,7 +204,7 @@ export default function CompareDashboard({ catalog, onBack }) {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', padding: '1rem', background: 'var(--bg-panel)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+      <div className="no-print" style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', padding: '1rem', background: 'var(--bg-panel)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
         <select className="input-field" style={{ width: 'auto' }} value={filterView} onChange={e => setFilterView(e.target.value)}>
           <option value="changed">Só Alterados</option>
           <option value="all">Todos</option>

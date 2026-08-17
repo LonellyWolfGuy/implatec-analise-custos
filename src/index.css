@@ -311,3 +311,61 @@ h1, h2, h3, h4, h5, h6 {
 
 .text-right { text-align: right; }
 .font-mono { font-family: var(--font-mono); }
+
+/* --- Print Styles --- */
+@media print {
+  @page { margin: 1cm; }
+  
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  
+  .no-print {
+    display: none !important;
+  }
+  
+  .app-container {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  
+  .table-container {
+    max-height: none !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: white !important;
+  }
+  
+  .glass-card, .glass-panel {
+    background: white !important;
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    page-break-inside: avoid;
+  }
+  
+  .table {
+    width: 100% !important;
+    font-size: 0.8rem !important; /* Make it smaller to fit */
+  }
+  
+  .table th {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+    border-bottom: 2px solid #cbd5e1 !important;
+    position: static !important; /* Remove sticky in print */
+  }
+  
+  .table td {
+    color: #0f172a !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+  }
+  
+  .table tr {
+    page-break-inside: avoid !important;
+  }
+}
