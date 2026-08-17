@@ -87,6 +87,8 @@ export default function CompareDashboard({ catalog, onBack }) {
     if (!data) return [];
     return data.filter(r => {
       if (filterView === 'changed' && r.dp === 0 && r.dq === 0) return false;
+      if (filterView === 'increased' && r.dp <= 0) return false;
+      if (filterView === 'decreased' && r.dp >= 0) return false;
       if (filterCat && r.cat !== filterCat) return false;
       if (search && !r.desc.toLowerCase().includes(search.toLowerCase()) && !r.cod.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
@@ -206,6 +208,8 @@ export default function CompareDashboard({ catalog, onBack }) {
         <select className="input-field" style={{ width: 'auto' }} value={filterView} onChange={e => setFilterView(e.target.value)}>
           <option value="changed">Só Alterados</option>
           <option value="all">Todos</option>
+          <option value="increased">Só Aumentos (Maior)</option>
+          <option value="decreased">Só Reduções (Menor)</option>
         </select>
         <select className="input-field" style={{ width: 'auto' }} value={filterCat} onChange={e => setFilterCat(e.target.value)}>
           <option value="">Todas Categorias</option>
