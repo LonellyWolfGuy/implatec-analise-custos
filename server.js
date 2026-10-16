@@ -32,18 +32,59 @@ const server = http.createServer((req, res) => {
   const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = parsedUrl.pathname;
 
-  // Serve static frontend
-  if (pathname === '/' || pathname === '/index.html') {
-    fs.readFile(path.join(__dirname, 'index.html'), 'utf8', (err, content) => {
-      if (err) {
-        res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
-        res.end('Erro ao carregar index.html');
-      } else {
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(content);
+  const mimeTypes = {
+    '.html': 'text/html; charset=utf-8',
+    '.js': 'application/javascript; charset=utf-8',
+    '.mjs': 'application/javascript; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.json': 'application/json; charset=utf-8',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.svg': 'image/svg+xml',
+    '.ico': 'image/x-icon'
+  };
+
+  const distDir = path.join(__dirname, 'dist');
+  const hasDist = fs.existsSync(distDir);
+
+  // Serve static assets from dist if built, or direct guidance
+  if (!pathname.startsWith('/api/')) {
+    if (hasDist) {
+      let filePath = path.join(distDir, pathname === '/' ? 'index.html' : pathname);
+      if (!fs.existsSync(filePath)) {
+        filePath = path.join(distDir, 'index.html');
       }
-    });
-    return;
+      const ext = path.extname(filePath);
+      const contentType = mimeTypes[ext] || 'application/octet-stream';
+
+      fs.readFile(filePath, (err, content) => {
+        if (err) {
+          res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+          res.end('Erro ao carregar asset estático');
+        } else {
+          res.writeHead(200, { 'Content-Type': contentType });
+          res.end(content);
+        }
+      });
+      return;
+    }
+
+    if (pathname === '/' || pathname === '/index.html') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(`
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+        <head><meta charset="utf-8"><title>Implatec API</title><style>body{font-family:sans-serif;padding:2rem;line-height:1.6;}</style></head>
+        <body>
+          <h2>Servidor Backend Local — Implatec Custos (Porta 3000)</h2>
+          <p>As rotas da <code>/api</code> estão ativas e funcionando.</p>
+          <p>Para abrir a interface em desenvolvimento com Vite, acesse: <a href="http://localhost:5173">http://localhost:5173</a></p>
+          <p>Ou execute <code>npm run build</code> para gerar a pasta <code>dist</code> de produção.</p>
+        </body>
+        </html>
+      `);
+      return;
+    }
   }
 
   // Serve API routes

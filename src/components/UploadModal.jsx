@@ -97,11 +97,32 @@ export default function UploadModal({ onClose, onSuccess }) {
 
         {!file && !loading && (
           <div 
-            style={{ border: '2px dashed var(--accent)', borderRadius: 'var(--radius-md)', padding: '3rem 1rem', textAlign: 'center', cursor: 'pointer', background: 'var(--bg-hover)', transition: 'background 0.2s' }}
+            style={{ 
+              border: '2px dashed var(--accent)', 
+              borderRadius: 'var(--radius-md)', 
+              padding: '3rem 1rem', 
+              textAlign: 'center', 
+              cursor: 'pointer', 
+              background: 'var(--bg-hover)', 
+              transition: 'all 0.2s ease' 
+            }}
             onClick={() => fileInputRef.current.click()}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const dropped = e.dataTransfer.files?.[0];
+              if (dropped) loadFile(dropped);
+            }}
           >
             <UploadCloud size={48} style={{ color: 'var(--accent)', margin: '0 auto 1rem auto' }} />
             <p><strong>Clique</strong> ou arraste para selecionar o arquivo</p>
+            <span style={{ display: 'block', color: 'var(--text-sec)', fontSize: '0.8rem', marginTop: '0.5rem' }}>
+              Suporta PDF (relatório MOD7 TOTVS) e CSV
+            </span>
           </div>
         )}
 

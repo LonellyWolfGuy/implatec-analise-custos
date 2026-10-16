@@ -121,12 +121,76 @@ export async function extractFromPdf(file, onProgress) {
   return allItems;
 }
 
+function normalizeHeaderKey(key) {
+  return String(key || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function findValueByKeys(obj, candidates) {
+  const normKeys = Object.keys(obj).map(k => ({ raw: k, norm: normalizeHeaderKey(k) }));
+  for (const candidate of candidates) {
+    const found = normKeys.find(k => k.norm === candidate);
+    if (found && obj[found.raw] !== undefined && obj[found.raw] !== null) {
+      return obj[found.raw];
+    }
+  }
+  return undefined;
+}
+
 export async function extractFromCsv(file) {
   return new Promise((resolve, reject) => {
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
-      complete: r => resolve(r.data),
+      delimitersToGuess: [',', ';', '\t', '|'],
+      transformHeader: h => h.trim(),
+      complete: r => {
+        const rawItems = r.data || [];
+        const normalized = rawItems.map(row => {
+          // Se já vier no formato correto (ex: exportado pelo próprio sistema)
+          if (row.cod !== undefined && row.desc !== undefined) {
+            return {
+              cod: String(row.cod || '').trim(),
+              desc: String(row.desc || '').trim(),
+              cat: String(row.cat || '').trim(),
+              qty: typeof row.qty === 'number' ? row.qty : parseBrNumber(row.qty),
+              unitCost: typeof row.unitCost === 'number' ? row.unitCost : parseBrNumber(row.unitCost),
+              totalCost: typeof row.totalCost === 'number' ? row.totalCost : parseBrNumber(row.totalCost)
+            };
+          }
+
+          // Busca flexível de colunas comuns em exportações de ERP
+          const cod = findValueByKeys(row, ['cod', 'codigo', 'item', 'produto', 'coditem']);
+          const desc = findValueByKeys(row, ['desc', 'descricao', 'nome', 'especificacao', 'narrativa']);
+          const cat = findValueByKeys(row, ['cat', 'categoria', 'tipo', 'grupomercadoria']);
+          const qty = findValueByKeys(row, ['qty', 'qtd', 'quantidade', 'quant', 'saldo', 'saldoestoque']);
+          const unitCost = findValueByKeys(row, ['unitcost', 'unitario', 'custounitario', 'vlunit', 'valorunitario', 'preco']);
+          const totalCost = findValueByKeys(row, ['totalcost', 'total', 'parcial', 'custototal', 'vltotal', 'valortotal']);
+
+          const parsedQty = typeof qty === 'number' ? qty : parseBrNumber(qty);
+          const parsedUnit = typeof unitCost === 'number' ? unitCost : parseBrNumber(unitCost);
+          let parsedTotal = typeof totalCost === 'number' ? totalCost : parseBrNumber(totalCost);
+
+          if (!parsedTotal && parsedQty && parsedUnit) {
+            parsedTotal = parsedQty * parsedUnit;
+          }
+
+          return {
+            cod: String(cod || '').trim(),
+            desc: String(desc || '').trim(),
+            cat: String(cat || '').trim(),
+            qty: parsedQty || 0,
+            unitCost: parsedUnit || 0,
+            totalCost: parsedTotal || 0
+          };
+        }).filter(item => Boolean(item.cod));
+
+        resolve(normalized);
+      },
       error: reject
     });
   });
@@ -142,11 +206,6 @@ export async function processFile(file, onProgress) {
   }
   if (fileName.endsWith('.csv')) {
     let items = await extractFromCsv(file);
-    // Basic mapping if CSV is raw
-    if (items.length > 0 && !items[0].cod && Object.keys(items[0]).length > 0) {
-       // Just mapping standard PapaParse to our schema might require specific column checks
-       // Assuming it's already mapped if exported from the tool itself, else we might need custom logic.
-    }
     items.forEach(i => { if (!i.cat && i.cod) i.cat = guessCategory(i.cod); });
     return { name: file.name, items };
   }

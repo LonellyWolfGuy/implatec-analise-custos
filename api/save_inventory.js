@@ -20,15 +20,31 @@ export default async function handler(req, res) {
     return res.status(413).json({ error: 'data array exceeds maximum of 5000 items' });
   }
 
+  const payload = {
+    month_year,
+    filename: filename || null,
+    item_count: data.length,
+    data
+  };
+
   if (overwrite) {
-    const { data: record, error } = await supabase
+    let { data: record, error } = await supabase
       .from('monthly_inventories')
-      .upsert(
-        { month_year, filename: filename || null, data },
-        { onConflict: 'month_year' }
-      )
+      .upsert(payload, { onConflict: 'month_year' })
       .select('id')
       .single();
+
+    // Fallback se a coluna item_count ainda não existir no schema
+    if (error && error.code === '42703') {
+      const legacyPayload = { month_year, filename: filename || null, data };
+      const fallback = await supabase
+        .from('monthly_inventories')
+        .upsert(legacyPayload, { onConflict: 'month_year' })
+        .select('id')
+        .single();
+      record = fallback.data;
+      error = fallback.error;
+    }
 
     if (error) {
       console.error('Supabase upsert error:', error);
@@ -41,11 +57,23 @@ export default async function handler(req, res) {
     return res.json({ id: record.id, overwritten: true });
   }
 
-  const { data: record, error } = await supabase
+  let { data: record, error } = await supabase
     .from('monthly_inventories')
-    .insert({ month_year, filename: filename || null, data })
+    .insert(payload)
     .select('id')
     .single();
+
+  // Fallback se a coluna item_count ainda não existir no schema
+  if (error && error.code === '42703') {
+    const legacyPayload = { month_year, filename: filename || null, data };
+    const fallback = await supabase
+      .from('monthly_inventories')
+      .insert(legacyPayload)
+      .select('id')
+      .single();
+    record = fallback.data;
+    error = fallback.error;
+  }
 
   if (error) {
     console.error('Supabase insert error:', error);

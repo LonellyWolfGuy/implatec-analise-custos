@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ArrowLeft, ArrowUp, ArrowDown, Printer, FileText } from 'lucide-react';
+import { 
+  ArrowLeft, ArrowUp, ArrowDown, Printer, FileText, Download, 
+  ArrowUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
+  PlusCircle, MinusCircle
+} from 'lucide-react';
 import { getInventory } from '../services/api';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
@@ -20,8 +24,8 @@ function computeDeltas(r) {
 }
 
 function crossFiles(m1Data, m2Data) {
-  const map1 = new Map(m1Data.map(i => [i.cod, i]));
-  const map2 = new Map(m2Data.map(i => [i.cod, i]));
+  const map1 = new Map((m1Data || []).map(i => [i.cod, i]));
+  const map2 = new Map((m2Data || []).map(i => [i.cod, i]));
   const all = new Set([...map1.keys(), ...map2.keys()]);
   const merged = [];
   
@@ -32,7 +36,7 @@ function crossFiles(m1Data, m2Data) {
     merged.push({
       cod,
       desc: a.desc || b.desc,
-      cat: a.cat || b.cat,
+      cat: a.cat || b.cat || '??',
       q1: a.qty, u1: a.unitCost, p1: a.totalCost,
       q2: b.qty, u2: b.unitCost, p2: b.totalCost
     });
@@ -49,10 +53,18 @@ export default function CompareDashboard({ catalog, onBack }) {
   const [inv1Name, setInv1Name] = useState('');
   const [inv2Name, setInv2Name] = useState('');
 
-  // Filters
+  // Filtros
   const [filterView, setFilterView] = useState('changed');
   const [filterCat, setFilterCat] = useState('');
   const [search, setSearch] = useState('');
+
+  // Ordenação
+  const [sortField, setSortField] = useState('dp');
+  const [sortDirection, setSortDirection] = useState('desc');
+
+  // Paginação
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
 
   useEffect(() => {
     if (catalog && catalog.length > 1) {
@@ -79,6 +91,7 @@ export default function CompareDashboard({ catalog, onBack }) {
       const withDeltas = merged.map(r => ({ ...r, ...computeDeltas(r) }));
       
       setData(withDeltas);
+      setCurrentPage(1);
     } catch (e) {
       alert("Erro ao buscar dados: " + e.message);
     } finally {
@@ -86,17 +99,69 @@ export default function CompareDashboard({ catalog, onBack }) {
     }
   };
 
-  const filteredData = useMemo(() => {
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection(['cod', 'desc', 'cat'].includes(field) ? 'asc' : 'desc');
+    }
+    setCurrentPage(1);
+  };
+
+  // Conjunto filtrado e ordenado
+  const sortedData = useMemo(() => {
     if (!data) return [];
-    return data.filter(r => {
+    
+    const filtered = data.filter(r => {
       if (filterView === 'changed' && r.dp === 0 && r.dq === 0) return false;
       if (filterView === 'increased' && r.dp <= 0) return false;
       if (filterView === 'decreased' && r.dp >= 0) return false;
+      if (filterView === 'new_items' && !(r.q1 === 0 && r.q2 > 0)) return false;
+      if (filterView === 'removed_items' && !(r.q1 > 0 && r.q2 === 0)) return false;
       if (filterCat && r.cat !== filterCat) return false;
       if (search && !r.desc.toLowerCase().includes(search.toLowerCase()) && !r.cod.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
-    }).sort((a, b) => Math.abs(b.dp) - Math.abs(a.dp)); // Sort by largest absolute partial diff by default
-  }, [data, filterView, filterCat, search]);
+    });
+
+    return [...filtered].sort((a, b) => {
+      let valA = a[sortField];
+      let valB = b[sortField];
+
+      if (typeof valA === 'string' || typeof valB === 'string') {
+        const strA = String(valA || '').toLowerCase();
+        const strB = String(valB || '').toLowerCase();
+        return sortDirection === 'asc' ? strA.localeCompare(strB) : strB.localeCompare(strA);
+      }
+
+      valA = Number(valA || 0);
+      valB = Number(valB || 0);
+
+      // Na ordenação inicial por dp desc, ordena por maior variação absoluta
+      if (sortField === 'dp' && sortDirection === 'desc') {
+        return Math.abs(valB) - Math.abs(valA);
+      }
+
+      return sortDirection === 'asc' ? valA - valB : valB - valA;
+    });
+  }, [data, filterView, filterCat, search, sortField, sortDirection]);
+
+  // Reset de página ao mudar filtros
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterView, filterCat, search]);
+
+  // Paginação
+  const totalItems = sortedData.length;
+  const effectivePageSize = pageSize === -1 ? totalItems : pageSize;
+  const totalPages = effectivePageSize > 0 ? Math.max(1, Math.ceil(totalItems / effectivePageSize)) : 1;
+  const validPage = Math.min(currentPage, totalPages);
+
+  const paginatedData = useMemo(() => {
+    if (pageSize === -1) return sortedData;
+    const start = (validPage - 1) * pageSize;
+    return sortedData.slice(start, start + pageSize);
+  }, [sortedData, validPage, pageSize]);
 
   const fmt = (v, dec=2) => (v == null || isNaN(v)) ? '–' : v.toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
   const fmtR = (v, dec=2) => {
@@ -147,7 +212,7 @@ export default function CompareDashboard({ catalog, onBack }) {
     );
   }
 
-  // Dashboard Metrics
+  // Métricas do Dashboard
   const tot1 = data.reduce((acc, r) => acc + r.p1, 0);
   const tot2 = data.reduce((acc, r) => acc + r.p2, 0);
   const delta = tot2 - tot1;
@@ -155,27 +220,79 @@ export default function CompareDashboard({ catalog, onBack }) {
   
   const upCount = data.filter(r => r.p1 > 0 && r.p2 > 0 && r.dp > 0).length;
   const downCount = data.filter(r => r.p1 > 0 && r.p2 > 0 && r.dp < 0).length;
-  
-  const chartData = {
-    labels: [inv1Name, inv2Name],
-    datasets: [{
-      label: 'Valor Total (R$)',
-      data: [tot1, tot2],
-      backgroundColor: 'rgba(59, 130, 246, 0.5)',
-      borderColor: 'rgb(59, 130, 246)',
-      borderWidth: 1
-    }]
-  };
+  const newItemsCount = data.filter(r => r.q1 === 0 && r.q2 > 0).length;
+  const removedItemsCount = data.filter(r => r.q1 > 0 && r.q2 === 0).length;
 
   const filterLabel = {
     changed: 'Itens Alterados',
     all: 'Todos os Itens',
     increased: 'Somente Aumentos',
     decreased: 'Somente Reduções',
+    new_items: 'Novos no Mês 2',
+    removed_items: 'Zerados/Descontinuados'
   }[filterView] || '';
 
+  const categoryLabel = {
+    PA: 'PA - Produto Acabado',
+    CO: 'CO - Composto',
+    MP: 'MP - Matéria Prima',
+    AG: 'AG - Agregado',
+    EM: 'EM - Embalagem',
+    RE: 'RE - Refugo',
+    '??': 'Não Classificado'
+  }[filterCat] || (filterCat || 'Todas as categorias');
+
+  // Exportação CSV com delimitador brasileiro e BOM para Excel
+  const handleExportCSV = () => {
+    if (!sortedData || sortedData.length === 0) {
+      window.alert('Não há itens no filtro atual para exportar.');
+      return;
+    }
+
+    const headers = [
+      'Código', 'Descrição', 'Categoria',
+      `Qtd ${inv1Name}`, `Unit ${inv1Name}`, `Parc ${inv1Name}`,
+      `Qtd ${inv2Name}`, `Unit ${inv2Name}`, `Parc ${inv2Name}`,
+      'Δ Qtd', 'Δ Unit', 'Δ Parc', 'Δ Parc %'
+    ];
+
+    const escapeCsv = (str) => `"${String(str ?? '').replace(/"/g, '""')}"`;
+    const formatCsvNumber = (v, dec = 2) => {
+      if (v == null || isNaN(v)) return '';
+      return Number(v).toFixed(dec).replace('.', ',');
+    };
+
+    const rows = sortedData.map(r => [
+      r.cod,
+      r.desc,
+      r.cat,
+      formatCsvNumber(r.q1, 3),
+      formatCsvNumber(r.u1, 4),
+      formatCsvNumber(r.p1, 2),
+      formatCsvNumber(r.q2, 3),
+      formatCsvNumber(r.u2, 4),
+      formatCsvNumber(r.p2, 2),
+      formatCsvNumber(r.dq, 3),
+      formatCsvNumber(r.du, 4),
+      formatCsvNumber(r.dp, 2),
+      formatCsvNumber(r.dpp, 2)
+    ].map(escapeCsv).join(';'));
+
+    const csvContent = [headers.map(escapeCsv).join(';'), ...rows].join('\r\n');
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Relatorio_Comparativo_${inv1Name.replace('/', '-')}_vs_${inv2Name.replace('/', '-')}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Exportação PDF com identidade visual Implatec
   const handleExportPDF = () => {
-    if (!filteredData || filteredData.length === 0) {
+    if (!sortedData || sortedData.length === 0) {
       window.alert('Não há itens no filtro atual para exportar. Ajuste os filtros e tente novamente.');
       return;
     }
@@ -216,8 +333,7 @@ export default function CompareDashboard({ catalog, onBack }) {
         return `${fmtSignedPdf(value)}%`;
       };
 
-      // Todos os indicadores gerenciais são calculados sobre o mesmo recorte da tabela.
-      const reportMetrics = filteredData.reduce((metrics, row) => {
+      const reportMetrics = sortedData.reduce((metrics, row) => {
         metrics.totalReference += toNumber(row.p1);
         metrics.totalCompared += toNumber(row.p2);
         if (toNumber(row.dp) > 0) metrics.increases += 1;
@@ -236,11 +352,6 @@ export default function CompareDashboard({ catalog, onBack }) {
         ? (reportMetrics.variation / reportMetrics.totalReference) * 100
         : null;
 
-      const categoryLabel = {
-        PA: 'PA - Produto Acabado',
-        CO: 'CO - Composto',
-        MP: 'MP - Matéria Prima',
-      }[filterCat] || (filterCat || 'Todas as categorias');
       const filterParts = [
         `Visão: ${filterLabel}`,
         `Categoria: ${categoryLabel}`,
@@ -257,7 +368,7 @@ export default function CompareDashboard({ catalog, onBack }) {
         }
       };
 
-      // Cabeçalho executivo da primeira página.
+      // Cabeçalho da primeira página
       drawLogo(10, 5, 58);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(14);
@@ -278,7 +389,7 @@ export default function CompareDashboard({ catalog, onBack }) {
       doc.setLineWidth(1.2);
       doc.line(10, 25.5, 68, 25.5);
 
-      // Faixa com os filtros efetivamente aplicados.
+      // Faixa de filtros aplicados
       const filterBlockY = 29;
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7.5);
@@ -294,7 +405,7 @@ export default function CompareDashboard({ catalog, onBack }) {
       doc.setTextColor(...DARK);
       doc.text(filterLines, 43, filterBlockY + 5.5);
 
-      // Indicadores do recorte filtrado.
+      // Indicadores do recorte filtrado
       const kpiY = filterBlockY + filterBlockHeight + 3;
       const kpiHeight = 18;
       const kpiGap = 3;
@@ -322,7 +433,7 @@ export default function CompareDashboard({ catalog, onBack }) {
         },
         {
           label: 'ITENS DO RECORTE',
-          value: `${filteredData.length} itens`,
+          value: `${sortedData.length} itens`,
           detail: `Altas ${reportMetrics.increases} | Reduções ${reportMetrics.decreases} | Estáveis ${reportMetrics.unchanged}`,
           color: DARK_GREEN,
         },
@@ -355,7 +466,7 @@ export default function CompareDashboard({ catalog, onBack }) {
         `Qtd\n${inv2Name}`, `Unit.\n${inv2Name}`, `Parc.\n${inv2Name}`,
         'Var. Unit.', 'Var. Parc.', 'Var. %',
       ];
-      const rows = filteredData.map(row => [
+      const rows = sortedData.map(row => [
         row.cod,
         row.desc,
         row.cat,
@@ -440,9 +551,8 @@ export default function CompareDashboard({ catalog, onBack }) {
         },
       });
 
-      // Rodapé aplicado após a tabela para usar o número total definitivo de páginas.
-      const totalPages = doc.internal.getNumberOfPages();
-      for (let pageNumber = 1; pageNumber <= totalPages; pageNumber += 1) {
+      const totalPagesPdf = doc.internal.getNumberOfPages();
+      for (let pageNumber = 1; pageNumber <= totalPagesPdf; pageNumber += 1) {
         doc.setPage(pageNumber);
         const pageH = doc.internal.pageSize.getHeight();
         doc.setDrawColor(...GREEN);
@@ -452,7 +562,7 @@ export default function CompareDashboard({ catalog, onBack }) {
         doc.setFontSize(7);
         doc.setTextColor(...MUTED);
         doc.text('IMPLATEC | Relatório gerencial - uso interno', 10, pageH - 5.5);
-        doc.text(`Página ${pageNumber} de ${totalPages}`, pageW - 10, pageH - 5.5, { align: 'right' });
+        doc.text(`Página ${pageNumber} de ${totalPagesPdf}`, pageW - 10, pageH - 5.5, { align: 'right' });
       }
 
       const sanitizeFilePart = value => String(value)
@@ -467,37 +577,63 @@ export default function CompareDashboard({ catalog, onBack }) {
     }
   };
 
+  const renderSortIndicator = (field) => {
+    if (sortField !== field) {
+      return <ArrowUpDown size={12} style={{ opacity: 0.3 }} />;
+    }
+    return sortDirection === 'asc' 
+      ? <ArrowUp size={14} style={{ color: 'var(--accent)' }} /> 
+      : <ArrowDown size={14} style={{ color: 'var(--accent)' }} />;
+  };
+
   return (
     <div className="animate-fade-in">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
           <h2 style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>Comparativo {inv1Name} vs {inv2Name}</h2>
-          <span style={{ color: 'var(--text-sec)', fontSize: '0.9rem' }}>Custo Médio · Filtro Ativo: {filteredData.length} itens</span>
+          <span style={{ color: 'var(--text-sec)', fontSize: '0.9rem' }}>
+            Custo Médio · {totalItems} {totalItems === 1 ? 'item filtrado' : 'itens filtrados'}
+          </span>
         </div>
-        <div className="no-print" style={{ display: 'flex', gap: '0.75rem' }}>
+        <div className="no-print" style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
           <button className="btn btn-ghost" onClick={() => setData(null)}><ArrowLeft size={16} /> Voltar</button>
+          
+          <button
+            className="btn btn-ghost"
+            onClick={handleExportCSV}
+            disabled={totalItems === 0}
+            title="Exportar dados filtrados em planilha CSV (Excel)"
+            style={{ color: '#0284c7', borderColor: 'rgba(2, 132, 199, 0.4)' }}
+          >
+            <Download size={16} /> Exportar CSV
+          </button>
+
           <button
             className="btn btn-ghost"
             onClick={handleExportPDF}
-            disabled={filteredData.length === 0}
-            title={filteredData.length === 0 ? 'Não há itens no filtro atual para exportar' : 'Exportar o recorte filtrado em PDF'}
-            style={{ color: '#006400', borderColor: '#006400' }}
+            disabled={totalItems === 0}
+            title="Exportar relatório executivo com identidade visual Implatec"
+            style={{ color: '#006400', borderColor: 'rgba(0, 100, 0, 0.4)' }}
           >
             <FileText size={16} /> Exportar PDF
           </button>
+
           <button className="btn btn-ghost" onClick={() => window.print()}><Printer size={16} /> Imprimir</button>
         </div>
       </div>
 
+      {/* Cards de Métricas */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
         <div className="glass-card" style={{ padding: '1.25rem' }}>
           <span className="label-text" style={{ textTransform: 'uppercase', fontSize: '0.75rem' }}>Total {inv1Name}</span>
           <strong style={{ fontSize: '1.5rem', display: 'block' }}>R$ {fmt(tot1)}</strong>
         </div>
+
         <div className="glass-card" style={{ padding: '1.25rem' }}>
           <span className="label-text" style={{ textTransform: 'uppercase', fontSize: '0.75rem' }}>Total {inv2Name}</span>
           <strong style={{ fontSize: '1.5rem', display: 'block' }}>R$ {fmt(tot2)}</strong>
         </div>
+
         <div className="glass-card" style={{ padding: '1.25rem' }}>
           <span className="label-text" style={{ textTransform: 'uppercase', fontSize: '0.75rem' }}>Flutuação Geral</span>
           <strong style={{ fontSize: '1.5rem', display: 'block', color: delta > 0 ? 'var(--danger)' : (delta < 0 ? 'var(--success)' : 'var(--text)') }}>
@@ -507,68 +643,219 @@ export default function CompareDashboard({ catalog, onBack }) {
             {fmtR(deltaPct)}%
           </span>
         </div>
+
         <div className="glass-card" style={{ padding: '1.25rem' }}>
-          <span className="label-text" style={{ textTransform: 'uppercase', fontSize: '0.75rem' }}>Itens Subiram/Baixaram</span>
-          <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
-            <span style={{ color: 'var(--danger)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}><ArrowUp size={16}/> {upCount}</span>
-            <span style={{ color: 'var(--success)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}><ArrowDown size={16}/> {downCount}</span>
+          <span className="label-text" style={{ textTransform: 'uppercase', fontSize: '0.75rem' }}>Oscilações</span>
+          <div style={{ display: 'flex', gap: '1.25rem', marginTop: '0.5rem' }}>
+            <span 
+              style={{ color: 'var(--danger)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
+              onClick={() => setFilterView('increased')}
+              title="Filtrar apenas aumentos"
+            >
+              <ArrowUp size={16}/> {upCount} altas
+            </span>
+            <span 
+              style={{ color: 'var(--success)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
+              onClick={() => setFilterView('decreased')}
+              title="Filtrar apenas reduções"
+            >
+              <ArrowDown size={16}/> {downCount} quedas
+            </span>
+          </div>
+        </div>
+
+        <div className="glass-card" style={{ padding: '1.25rem' }}>
+          <span className="label-text" style={{ textTransform: 'uppercase', fontSize: '0.75rem' }}>Novos / Descontinuados</span>
+          <div style={{ display: 'flex', gap: '1.25rem', marginTop: '0.5rem' }}>
+            <span 
+              style={{ color: 'var(--info)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
+              onClick={() => setFilterView('new_items')}
+              title="Filtrar itens novos no mês 2"
+            >
+              <PlusCircle size={16}/> {newItemsCount} novos
+            </span>
+            <span 
+              style={{ color: 'var(--text-sec)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
+              onClick={() => setFilterView('removed_items')}
+              title="Filtrar itens zerados ou descontinuados"
+            >
+              <MinusCircle size={16}/> {removedItemsCount} zerados
+            </span>
           </div>
         </div>
       </div>
 
-      <div className="no-print" style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', padding: '1rem', background: 'var(--bg-panel)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
-        <select className="input-field" style={{ width: 'auto' }} value={filterView} onChange={e => setFilterView(e.target.value)}>
-          <option value="changed">Só Alterados</option>
-          <option value="all">Todos</option>
-          <option value="increased">Só Aumentos (Maior)</option>
-          <option value="decreased">Só Reduções (Menor)</option>
+      {/* Barra de Filtros */}
+      <div className="no-print" style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', padding: '1rem', background: 'var(--bg-panel)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', flexWrap: 'wrap' }}>
+        <select className="input-field" style={{ width: 'auto', minWidth: '180px' }} value={filterView} onChange={e => setFilterView(e.target.value)}>
+          <option value="changed">Só Alterados (Qtd ou Custo)</option>
+          <option value="all">Todos os Itens</option>
+          <option value="increased">Só Aumentos de Custo</option>
+          <option value="decreased">Só Reduções de Custo</option>
+          <option value="new_items">Novos no Mês 2</option>
+          <option value="removed_items">Zerados / Descontinuados</option>
         </select>
-        <select className="input-field" style={{ width: 'auto' }} value={filterCat} onChange={e => setFilterCat(e.target.value)}>
+
+        <select className="input-field" style={{ width: 'auto', minWidth: '180px' }} value={filterCat} onChange={e => setFilterCat(e.target.value)}>
           <option value="">Todas Categorias</option>
-          <option value="PA">PA - Produto Acabado</option>
-          <option value="CO">CO - Composto</option>
-          <option value="MP">MP - Matéria Prima</option>
+          <option value="PA">PA — Produto Acabado (01)</option>
+          <option value="CO">CO — Composto (03)</option>
+          <option value="MP">MP — Matéria Prima (04)</option>
+          <option value="AG">AG — Agregado (05)</option>
+          <option value="EM">EM — Embalagem (06)</option>
+          <option value="RE">RE — Refugo (11)</option>
+          <option value="??">?? — Não Classificado</option>
         </select>
-        <input type="text" className="input-field" placeholder="Buscar por código ou descrição..." value={search} onChange={e => setSearch(e.target.value)} />
+
+        <input 
+          type="text" 
+          className="input-field" 
+          style={{ flex: 1, minWidth: '240px' }}
+          placeholder="Buscar por código ou descrição do item..." 
+          value={search} 
+          onChange={e => setSearch(e.target.value)} 
+        />
       </div>
 
-      <div className="table-container" style={{ maxHeight: 'calc(100vh - 250px)', overflow: 'auto' }}>
+      {/* Tabela com Cabeçalhos Ordenáveis */}
+      <div className="table-container" style={{ maxHeight: 'calc(100vh - 280px)', overflow: 'auto' }}>
         <table className="table">
           <thead>
             <tr>
-              <th>Código</th>
-              <th>Descrição</th>
-              <th>Cat</th>
-              <th className="text-right">Qtd {inv1Name}</th>
-              <th className="text-right">Unit {inv1Name}</th>
-              <th className="text-right">Parc {inv1Name}</th>
-              <th className="text-right">Qtd {inv2Name}</th>
-              <th className="text-right">Unit {inv2Name}</th>
-              <th className="text-right">Parc {inv2Name}</th>
-              <th className="text-right">Δ Unit</th>
-              <th className="text-right">Δ Parc</th>
-              <th className="text-right">Δ Parc %</th>
+              <th className="th-sortable" onClick={() => handleSort('cod')}>
+                <span className="th-content">Código {renderSortIndicator('cod')}</span>
+              </th>
+              <th className="th-sortable" onClick={() => handleSort('desc')}>
+                <span className="th-content">Descrição {renderSortIndicator('desc')}</span>
+              </th>
+              <th className="th-sortable text-center" onClick={() => handleSort('cat')}>
+                <span className="th-content">Cat {renderSortIndicator('cat')}</span>
+              </th>
+              <th className="th-sortable text-right" onClick={() => handleSort('q1')}>
+                <span className="th-content right">Qtd {inv1Name} {renderSortIndicator('q1')}</span>
+              </th>
+              <th className="th-sortable text-right" onClick={() => handleSort('u1')}>
+                <span className="th-content right">Unit {inv1Name} {renderSortIndicator('u1')}</span>
+              </th>
+              <th className="th-sortable text-right" onClick={() => handleSort('p1')}>
+                <span className="th-content right">Parc {inv1Name} {renderSortIndicator('p1')}</span>
+              </th>
+              <th className="th-sortable text-right" onClick={() => handleSort('q2')}>
+                <span className="th-content right">Qtd {inv2Name} {renderSortIndicator('q2')}</span>
+              </th>
+              <th className="th-sortable text-right" onClick={() => handleSort('u2')}>
+                <span className="th-content right">Unit {inv2Name} {renderSortIndicator('u2')}</span>
+              </th>
+              <th className="th-sortable text-right" onClick={() => handleSort('p2')}>
+                <span className="th-content right">Parc {inv2Name} {renderSortIndicator('p2')}</span>
+              </th>
+              <th className="th-sortable text-right" onClick={() => handleSort('du')}>
+                <span className="th-content right">Δ Unit {renderSortIndicator('du')}</span>
+              </th>
+              <th className="th-sortable text-right" onClick={() => handleSort('dp')}>
+                <span className="th-content right">Δ Parc {renderSortIndicator('dp')}</span>
+              </th>
+              <th className="th-sortable text-right" onClick={() => handleSort('dpp')}>
+                <span className="th-content right">Δ Parc % {renderSortIndicator('dpp')}</span>
+              </th>
             </tr>
           </thead>
           <tbody>
-            {filteredData.map(r => (
-              <tr key={r.cod}>
-                <td className="font-mono" style={{ fontSize: '0.8rem', color: 'var(--text-sec)' }}>{r.cod}</td>
-                <td style={{ fontWeight: 500 }}>{r.desc}</td>
-                <td><span className="badge">{r.cat}</span></td>
-                <td className="text-right">{fmt(r.q1, 3)}</td>
-                <td className="text-right">{fmt(r.u1, 4)}</td>
-                <td className="text-right">{fmt(r.p1)}</td>
-                <td className="text-right">{fmt(r.q2, 3)}</td>
-                <td className="text-right">{fmt(r.u2, 4)}</td>
-                <td className="text-right">{fmt(r.p2)}</td>
-                <td className="text-right" style={{ color: r.du > 0 ? 'var(--danger)' : (r.du < 0 ? 'var(--success)' : 'inherit') }}>{fmtR(r.du, 4)}</td>
-                <td className="text-right" style={{ color: r.dp > 0 ? 'var(--danger)' : (r.dp < 0 ? 'var(--success)' : 'inherit'), fontWeight: 600 }}>{fmtR(r.dp)}</td>
-                <td className="text-right" style={{ color: r.dpp > 0 ? 'var(--danger)' : (r.dpp < 0 ? 'var(--success)' : 'inherit') }}>{fmtR(r.dpp)}%</td>
+            {paginatedData.length === 0 ? (
+              <tr>
+                <td colSpan={12} style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-sec)' }}>
+                  Nenhum item corresponde aos filtros selecionados.
+                </td>
               </tr>
-            ))}
+            ) : (
+              paginatedData.map(r => (
+                <tr key={r.cod}>
+                  <td className="font-mono" style={{ fontSize: '0.8rem', color: 'var(--text-sec)' }}>{r.cod}</td>
+                  <td style={{ fontWeight: 500 }}>{r.desc}</td>
+                  <td><span className="badge">{r.cat}</span></td>
+                  <td className="text-right">{fmt(r.q1, 3)}</td>
+                  <td className="text-right">{fmt(r.u1, 4)}</td>
+                  <td className="text-right">{fmt(r.p1)}</td>
+                  <td className="text-right">{fmt(r.q2, 3)}</td>
+                  <td className="text-right">{fmt(r.u2, 4)}</td>
+                  <td className="text-right">{fmt(r.p2)}</td>
+                  <td className="text-right" style={{ color: r.du > 0 ? 'var(--danger)' : (r.du < 0 ? 'var(--success)' : 'inherit') }}>{fmtR(r.du, 4)}</td>
+                  <td className="text-right" style={{ color: r.dp > 0 ? 'var(--danger)' : (r.dp < 0 ? 'var(--success)' : 'inherit'), fontWeight: 600 }}>{fmtR(r.dp)}</td>
+                  <td className="text-right" style={{ color: r.dpp > 0 ? 'var(--danger)' : (r.dpp < 0 ? 'var(--success)' : 'inherit') }}>{fmtR(r.dpp)}%</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
+      </div>
+
+      {/* Barra de Paginação */}
+      <div className="pagination-container no-print">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <span>
+            Mostrando <strong>{totalItems === 0 ? 0 : (validPage - 1) * effectivePageSize + 1}</strong> a <strong>{Math.min(validPage * effectivePageSize, totalItems)}</strong> de <strong>{totalItems}</strong> itens
+          </span>
+          <span style={{ color: 'var(--border)' }}>|</span>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span>Itens por página:</span>
+            <select 
+              className="input-field" 
+              style={{ width: 'auto', padding: '0.25rem 0.5rem', fontSize: '0.85rem' }}
+              value={pageSize}
+              onChange={e => {
+                setPageSize(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+            >
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+              <option value={-1}>Todos</option>
+            </select>
+          </label>
+        </div>
+
+        {pageSize !== -1 && totalPages > 1 && (
+          <div className="pagination-controls">
+            <button 
+              className="pagination-btn" 
+              onClick={() => setCurrentPage(1)} 
+              disabled={validPage <= 1}
+              title="Primeira página"
+            >
+              <ChevronsLeft size={16} />
+            </button>
+            <button 
+              className="pagination-btn" 
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
+              disabled={validPage <= 1}
+              title="Página anterior"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            
+            <span style={{ padding: '0 0.5rem' }}>
+              Página <strong>{validPage}</strong> de <strong>{totalPages}</strong>
+            </span>
+
+            <button 
+              className="pagination-btn" 
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
+              disabled={validPage >= totalPages}
+              title="Próxima página"
+            >
+              <ChevronRight size={16} />
+            </button>
+            <button 
+              className="pagination-btn" 
+              onClick={() => setCurrentPage(totalPages)} 
+              disabled={validPage >= totalPages}
+              title="Última página"
+            >
+              <ChevronsRight size={16} />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

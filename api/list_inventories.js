@@ -16,14 +16,26 @@ export default async function handler(req, res) {
   }
 
   const includeCounts = req.query?.include_counts === 'true';
+
+  // Tentamos consultar selecionando item_count diretamente (sem baixar a coluna pesada data)
   const fields = includeCounts
-    ? 'id, month_year, filename, created_at, data'
+    ? 'id, month_year, filename, created_at, item_count'
     : 'id, month_year, filename, created_at';
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('monthly_inventories')
     .select(fields)
     .order('month_year', { ascending: false });
+
+  // Se a coluna item_count ainda não existir no Supabase (erro Postgres 42703), fallback seguro
+  if (error && error.code === '42703' && includeCounts) {
+    const fallback = await supabase
+      .from('monthly_inventories')
+      .select('id, month_year, filename, created_at, data')
+      .order('month_year', { ascending: false });
+    data = fallback.data;
+    error = fallback.error;
+  }
 
   if (error) {
     console.error('Supabase select error:', error);
@@ -32,8 +44,19 @@ export default async function handler(req, res) {
 
   const records = (data || []).map(record => {
     if (!includeCounts) return record;
-    const { data: items, ...metadata } = record;
-    return { ...metadata, item_count: Array.isArray(items) ? items.length : 0 };
+
+    // Se veio item_count da coluna no banco
+    if (typeof record.item_count === 'number' && !isNaN(record.item_count)) {
+      return record;
+    }
+
+    // Se veio pelo fallback com o campo data
+    if (record.data && Array.isArray(record.data)) {
+      const { data: items, ...metadata } = record;
+      return { ...metadata, item_count: items.length };
+    }
+
+    return { ...record, item_count: record.item_count || 0 };
   });
 
   res.json(records.sort((a, b) => monthYearSortKey(b.month_year) - monthYearSortKey(a.month_year)));
